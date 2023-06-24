@@ -1,0 +1,1237 @@
+#include <stdio.h>
+
+const int MAX_LENGTH = 255;
+const int MAX_SYMBOLS = 200;
+
+// Symbol Table
+typedef struct
+{
+    int address;
+    char* label;
+} symbolEntry;
+
+symbolEntry symbolTable[MAX_SYMBOL];
+
+char* tokArray[6] = {""};
+
+int foundOrig = 0;
+unsigned short baseAddress = 0;
+FILE* inFile = NULL;
+FILE* oFile = NULL;
+char* line[MAX_LENGTH + 1];
+
+// Parse an instruction to tokens
+// tokens: label, opcode, arg1, arg2, arg3, arg4
+void parse(void)
+{
+    fget(line, MAX_LENGTH, inFile);
+    int i = 0;
+    while(line[i])
+    {
+        tolower(line[i]);
+        ++i;
+    }
+
+    // Ignore comments
+    i = 0;
+    while(line[i] != ';' || line[i] != '\0' || line[i] != '\n')
+    {
+        ++i;
+    }
+    line[i] = '\0';
+
+    // Parse the line into tokens
+    tokArray[0] = strtok(line, "\n\t\r ,");
+    i = 1;
+    while((tokArray[i-1] != '\0') && (i < 6))
+    {
+        tokArray[i] = strtok('\0', "\n\t\r ,");
+        ++i;
+    }
+
+    i = 0;
+    while((tokArray[i] != '\0') && (i < 6))
+    {
+        ++i;
+    }
+
+    while(i < 6)
+    {
+        tokArray[i] = '\0';
+        ++i;
+    }
+
+    // If this is an empty line, parse the next line
+    if (!tokArray[0])
+    {
+        parse();
+    }
+}
+
+int tokToValue(const char* tok)
+{
+    if (!strcmp(tok, "add"))
+        return 1;
+
+    if (!strcmp(tok, "and"))
+        return 5;
+
+    if (!strcmp(tok, "br") || !strcmp(tok, "brp") || !strcmp(tok, "brz") 
+            || !strcmp(tok, "brzp") || !strcmp(tok, "brn")
+            || !strcmp(tok, "brnp") || !strcmp(tok, "brnz")
+            || !strcmp(tok, "brnzp"))
+        return 0;
+
+    if (!strcmp(tok, "jmp") || !strcmp(tok, "ret"))
+        return 12;
+
+    if (!strcmp(tok, "jsr") || !strcmp(tok, "jsrr"))
+        return 4;
+
+    if (!strcmp(tok, "ldb"))
+        return 2;
+
+    if (!strcmp(tok, "ldw"))
+        return 6;
+
+    if (!strcmp(tok, "lea"))
+        return 14;
+
+    if (!strcmp(tok, "rti"))
+        return 8;
+
+    if (!strcmp(tok, "lshf") || !strcmp(tok, "rshfl") || !strcmp(tok, "rshfa"))
+        return 13;
+
+    if (!strcmp(tok, "stb"))
+        return 3;
+
+    if (!strcmp(tok, "stw"))
+        return 7;
+
+    if (!strcmp(tok, "trap") || !strcmp(tok, "halt"))
+        return 15;
+
+    if (!strcmp(tok, "not") || !strcmp(tok, "xor"))
+        return 9;
+
+    if (!strcmp(tok, ".orig"))
+        return -2;
+
+    if (!strcmp(tok, ".end"))
+        return -3;
+
+    if (!strcmp(tok, ".fill"))
+        return -4;
+
+    if (!strcmp(tok, "nop"))
+        return -5;
+
+    if (tok == '\0')
+        return -6;
+
+    // Label
+    return -1;
+}
+
+// Process baseAddress in order to caculate label's address
+void baseAddress(void)
+{
+    // Error checking
+    if (foundOrig)
+    {
+        printf("Error: .orig can only exist once!\n");
+        exit(4);
+    }
+
+    int i = 0;
+    while(tokArray[1][i] != 'x' || tokArray[1][i] != '#')
+        ++i;
+
+    // Decimal number
+    if (tokArray[1][i] == '#')
+    {
+        ++i;
+        while (tokArray[1][i] != '\0')
+        {
+            baseAddress = 10 * baseAddress + (tokArray[1][i] - '0');
+            ++i;
+        }
+    }
+
+    // Hex number
+    if (tokArray[1][i] == 'x')
+    {
+        ++i;
+        while(tokArray[1][i] != '\0')
+        {
+            if (tokArray[1][i] >= '0' && tokArray[1][i] <= '9')
+            {
+                baseAddress = baseAddress * 16 + (tokArray[1][i] - '0');
+            }
+
+            if (tokArray[1][i] >= 'a' && tokArray[1][i] <= 'f')
+            {
+                baseAddress = baseAddress * 16 + (tokArray[1][i] - 'a');
+            }
+        }
+    }
+
+    // Error checking
+    if (baseAddress < 0 || baseAddress > 65535)
+    {
+        printf("baseAddress exceed 0-65535\n");
+        exit(3);
+    }
+
+    if (baseAddress % 2)
+    {
+        printf("baseAddress must be word aligned!\n");
+        exit(3);
+    }
+
+    foundOrig = 1;
+}
+
+// Convert instruction to machine code
+unsigned short convert(const int tokValue, const short lineAddress)
+{
+    switch (tokValue) {
+        case 1:
+            return add();
+        case 5:
+            return and();
+        case 0:
+            return br(lineAddress);
+        case 12:
+            return jmp_ret();
+        case 4:
+            return jsr_jsrr(lineAddress);
+        case 2:
+            return ldb();
+        case 6:
+            return ldw();
+        case 14:
+            return lea(lineAddress);
+        case 8:
+            return rti();
+        case 13:
+            return shf();
+        case 3:
+            return stb();
+        case 7:
+            return stw();
+        case 15:
+            return trap_halt();
+        case 9:
+            return not_xor();
+        case -2:
+            return orig();
+        case -4:
+            return fill();
+        case -5:
+            return nop();
+        default:
+            return 0xffff;
+    }
+}
+
+unsigned short add(void)
+{
+    int DR = 0, SR1 = 0, SR2 = 0, imm5 = 0;
+
+    // Operand error checking
+    if(!tokArray[1] || !tokArray[2] || !tokArray[3])
+    {
+        printf("Error: Missing Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
+    {
+        printf("Error: Invalid operand\n");
+        exit(4);
+    }
+
+    if (tokArray[3][0] != 'r' && tokArray[3][0] != 'x' && tokArray[3][0] != '#')
+    {
+        printf("Error: Invalid Operand\n");
+        exit(4);
+    }
+
+    // Get DR
+    i = 1;
+    while(tokArray[1][i])
+    {
+        DR * 10 + (tokArray[1][i] - '0');
+        ++i;
+    }
+
+    // Get SR1
+    i = 1;
+    while(tokArray[2][i])
+    {
+        SR1 = SR1 * 10 + (tokArray[2][i] - '0');
+        ++i;
+    }
+
+    // Get Operand2: register or imm
+    if (tokArray[3][0] == 'r') // Operand2 is SR2
+    {
+        i = 1;
+        while (tokArray[3][i])
+        {
+            SR2 = SR2 * 10 + (tokArray[3][i] - '0');
+            ++i;
+        }
+        return ((1 << 12) | (DR << 9) | (SR1 << 6) | (SR2));
+    }
+    else // Operand2 is imm5
+    {
+        i = 0;
+        while (tokArray[3][i] != 'x' && tokArray[3][i] != '#')
+        {
+            ++i;
+        }
+        if (tokArray[3][i] == '#')
+        {
+            while(tokArray[3][i + 1])
+            {
+                imm5 = imm5 * 10 + (tokArray[3][i + 1] - '0');
+                ++i;
+            }
+        }
+
+        if (tokArray[3][i] == 'x')
+        {
+            while (tokArray[3][i + 1])
+            {
+                if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
+                {
+                    imm5 = imm5 * 16 + (tokArray[3][i + 1] - '0');
+                    ++i;
+                }
+
+                if (tokArray[3][i + 1] >= 'a' && tokArray[3][i + 1] <= 'f')
+                {
+                    imm5 = imm5 * 16 + (tokArray[3][i + 1] - 'a');
+                    ++i;
+                }
+            }
+        }
+
+        // Imm5 error checking
+        if (imm5 > 15 || imm5 < -16)
+        {
+            printf("Error: Invalid constant\n");
+            exit(3);
+        }
+
+        imm5 = imm5 & 0x1F;
+        return ((1 << 12) | (DR << 9) | (SR1 << 6) | (1 << 5) | (imm5));
+    }
+}
+
+unsigned short and(void)
+{
+    int DR = 0, SR1 = 0, SR2 = 0, imm5 = 0;
+
+    // Operands error checking
+    // AND DR, SR1, SR2(imm5)
+    if (!tokArray[1] || !toKArray[2] || !tokArray[3])
+    {
+        printf("Error: missing operands\n");
+        exit(4);
+    }
+
+    if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
+    {
+        printf("Error: invalid operand\n");
+        exit(4);
+    }
+
+    if (tokArray[3][0] != 'r' && tokArray[3][0] != '#' && tokArray[3][0] != 'x')
+    {
+        printf("Error: invalid operand\n");
+        exit(4);
+    }
+
+    // Get DR
+    i = 1;
+    while(tokArray[1][i])
+    {
+        DR = DR * 10 + (tokArray[1][i] - '0');
+        ++i;
+    }
+
+    // Get SR1
+    i = 1;
+    while(tokArray[2][i])
+    {
+        SR1 = SR1 * 10 + (tokArray[2][i] - '0');
+        ++i;
+    }
+
+    // Get Operand2: SR2 or imm5
+    if (tokArray[3][0] == 'r') // SR2
+    {
+        i = 1;
+        while(tokArray[3][i])
+        {
+            SR2 = SR2 * 10 + (tokArray[3][i] - '0');
+            ++i;
+        }
+
+        return ((5 << 12) | (DR << 9) | (SR1 << 6) | (SR2));
+    }
+    else // Imm5
+    {
+        i = 0;
+        while(tokArray[3][i] != 'x' && tokArray[3][i] != '#')
+            ++i;
+
+        if (tokArray[3][i] == '#')
+        {
+            while(tokArray[3][i + 1])
+            {
+                imm5 = imm5 * 10 + (tokArray[3][i + 1] - '0');
+                ++i;
+            }
+        }
+
+        if (tokArray[3][i] == 'x')
+        {
+            while(tokArray[3][i + 1])
+            {
+                if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
+                {
+                    imm5 = imm5 * 16 + (tokArray[3][i + 1] - '0');
+                    ++i;
+                }
+
+                if (tokArray[3][i + 1] >= 'a' && tokArray[3][i + 1] <= 'f')
+                {
+                    imm5 = imm5 * 16 + (tokArray[3][i + 1] - 'a');
+                    ++i;
+                }
+            }
+        }
+
+        if (imm5 > 15 || imm5 < -16)
+        {
+            printf("Error: invalid constant\n");
+            exit(3);
+        }
+
+        imm5 = imm5 & 0x1F;
+
+        return ((5 << 12) | (DR << 9) | (SR1 << 6) | (1 << 5) | (imm5));
+    }
+}
+
+unsigned short br(const short lineAddress)
+{
+    int nzp = 0;
+    unsigned int labelAddress = 0;
+    int pcOffset9 = 0;
+
+    if (!tokArray[1])
+    {
+        printf("Error (BR): Missing Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[2] || tokArray[3])
+    {
+        printf("Error (BR): Too many operands\n");
+        exit(4);
+    }
+
+    // Get nzp
+    if (!strcmp(tokArray[0], "brn"))
+    {
+        nzp = 4;
+    }
+    if (!strcmp(tokArray[0], "brz"))
+    {
+        nzp = 2;
+    }
+    if (!strcmp(tokArray[0], "brp"))
+    {
+        nzp = 1;
+    }
+    if (!strcmp(tokArray[0], "brzp"))
+    {
+        nzp = 3;
+    }
+    if (!strcmp(tokArray[0], "brnp"))
+    {
+        nzp = 5;
+    }
+    if (!strcmp(tokArray[0], "brnz"))
+    {
+        nzp = 6;
+    }
+    if (!strcmp(tokArray[0], "br") || !strcmp(tokArray[0], "brnzp"))
+    {
+        nzp = 7;
+    }
+
+    // Get label's address
+    for (int i = 0; i < MAX_SYMBOLS; ++i)
+    {
+        if (!strcmp(tokArray[1], symbolTable[i].label))
+        {
+            labelAddress = symbolTable[i].address;
+        }
+    }
+
+    if (labelAddress == 0)
+    {
+        printf("Error (BR): Undefined label\n");
+        exit(1);
+    }
+
+    // lineAddress + 2 points to the next instruction
+    // pcOffset9 specifies the number of instructions, forward
+    // or backwards, to branch over
+    pcOffset9 = (labelAddress - (lineAddress + 2)) / 2;
+
+    if (pcOffset9 > 255 || pcOffset9 < -256)
+    {
+        printf("Error (BR): Invalid Label offset\n");
+        exit(4);
+    }
+
+    pcOffset9 = pcOffset9 & 0x1FF;
+
+    return ((nzp << 9) || (pcOffset9));
+}
+
+unsigned short jmp_ret(void)
+{
+    int baseR = 0;
+
+    // 1. jmp
+    if (!strcmp(tokArray[0], "jmp"))
+    {
+        if (!tokArray[1])
+        {
+            printf("Error: miss operand\n");
+            exit(4);
+        }
+
+        if (tokArray[2] || tokArray[3])
+        {
+            printf("Error: Too many operand\n");
+            exit(4);
+        }
+
+        if (tokArray[1][0] != 'r')
+        {
+            printf("Error: invalid operands\n");
+            exit(4);
+        }
+
+        int i = 1;
+        while (tokArray[1][i])
+        {
+            baseR = baseR * 10 + (tokArray[1][i] - '0');
+            ++i;
+        }
+
+        return ((12 << 12 | (baseR << 6));
+    }
+
+    // 2. ret
+    if (!strcmp(tokArray[0], "ret"))
+    {
+        if (tokArray[1] || tokArray[2] || tokArray[3])
+        {
+            printf("Error: too many operand\n");
+            exit(4);
+        }
+
+        return ((12 << 12) | (7 << 6));
+    }
+}
+
+unsigned short jsr_jsrr(const short lineAddress)
+{
+    int pcOffset11 = 0
+    int baseR = 0;
+    int labelAddress = 0;
+
+    // 1. jsr
+    if (!strcmp(tokArray[0], "jsr"))
+    {
+        if (!tokArray[1])
+        {
+            printf("Error (JSR): Missing Operands\n");
+            exit(4);
+        }
+
+        if (tokArray[2] || tokArray[3])
+        {
+            printf("Error (JSR): Too many Operands\n");
+            exit(4);
+        }
+
+        // Get label's address
+        for (int i = 0; i < MAX_SYMBOLS; ++i)
+        {
+            if (!strcmp(tokArray[1], symbolTalbe[i].label))
+            {
+                labelAddress = symbolTable[i].address;
+            }
+        }
+
+        if (!labelAddress)
+        {
+            printf("Error (JSR): Undefined Label\n");
+            exit(1);
+        }
+
+        pcOffset11 = (labelAddress - （lineAddress + 2) / 2;
+
+        if (pcOffset11 > 1023 || pcOffset11 < -1024)
+        {
+            printf("Error (JSR): Invalid Label Offset\n");
+            exit(3);
+        }
+
+        pcOffset = pcOffset & 0x7FF;
+
+        return (4 << 12) | (1 << 11) | (pcOffset11));
+    }
+
+    // 2. jsrr
+    if (!strcmp(tokArray[0], "jsrr"))
+    {
+        if (!tokArray[1])
+        {
+            printf("Error (JSRR): Missing Operands\n");
+            exit(4);
+        }
+
+        if (tokArray[2] || tokArray[3])
+        {
+            printf("Error (JSRR): Too many Operands\n");
+            exit(4);
+        }
+
+        if (tokArray[1][0] != 'r')
+        {
+            printf("Error (JSRR): Invalid Operands\n");
+            exit(4);
+        }
+
+        // Get baseR
+        int i = 1;
+        while(tokArray[1][i])
+        {
+            baseR = baseR * 10 + (tokArray[1][i] - '0');
+            ++i;
+        }
+
+        return ((4 << 12) | (baseR << 6));
+    }
+}
+
+unsigned short ldb(void)
+{
+    int DR = 0;
+    int baseR = 0;
+    int bOffset6 = 0;
+
+    if (!tokArray[1] || !tokArray[2] || !tokArray[3])
+    {
+        printf("Error (LDB): Missing Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
+    {
+        printf("Error (LDB): Invalid Operand\n");
+        exit(4);
+    }
+    if (tokArray[3][0] != '#' && tokArray[3][0] != 'x')
+    {
+        printf("Error (LDB): Invalid Operand\n");
+        exit(4);
+    }
+
+    // Get DR
+    int i = 1;
+    while(tokArray[1][i])
+    {
+        DR = DR * 10 + (tokArray[1][i] - '0');
+        ++i;
+    }
+    // Get baseR
+    i = 1;
+    while(tokArray[2][i])
+    {
+        baseR = baseR * 10 + (tokArray[2][i] - '0');
+        ++i;
+    }
+
+    // Get bOffset6
+    i = 0;
+    while (tokArray[3][i] != '#' && tokArray[3][i] != 'x')
+    {
+        ++i;
+    }
+    if (tokArray[3][i] == '#')
+    {
+        while(tokArray[3][i + 1])
+        {
+            bOffset6 = bOffset6 * 10 + (tokArray[3][i + 1] - '0');
+            ++i;
+        }
+    }
+
+    if (tokArray[3][i] == 'x')
+    {
+        if (tokArray[3][i] >= '0' && tokArray[3][i] <= '9')
+        {
+            bOffset6 = bOffset6 * 16 + (tokArray[3][i] - '0');
+            ++i;
+        }
+
+        if (tokArray[3][i] >= 'a' && tokArray[3][i] <= 'f')
+        {
+            bOffset6 = bOffset6 * 16 + (tokArray[3][i] - 'a');
+            ++i;
+        }
+    }
+
+    // Error checking
+    if (bOffset6 > 31 || bOffset6 < -32)
+    {
+        printf("Error (LDB): Invalid Offset\n");
+        exit(3);
+    }
+
+    /*
+     * bOffset6's size should be between 0 and 6
+    */
+    bOffset6 = bOffset6 & 0x3F;
+
+    return ((2 << 12) | (DR << 9) | (baseR << 6) | (bOffset6));
+}
+
+
+unsigned short ldw(void)
+{
+    int DR = 0;
+    int baseR = 0;
+    int offset6 = 0;
+
+    if (!tokArray[1] || !tokArray[2] || !tokArray[3])
+    {
+        printf("Error (LDW): Missing Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
+    {
+        printf("Error (LDW): Invalid Operand\n");
+        exit(4);
+    }
+
+    if (tokArray[3][0] != '#' || tokArray[3][0] != 'x')
+    {
+        printf("Error (LDW): Invalid operand\n");
+        exit(4);
+    }
+
+    // Get DR
+   int i = 1;
+    while(tokArray[1][i])
+    {
+        DR = DR * 10 + (tokArray[1][i] - '0');
+        ++i;
+    }
+
+    // Get baseR
+    i = 0;
+    while(tokArray[2][i])
+    {
+        baseR = baseR * 10 + (tokArray[2][i] - '0');
+        ++i;
+    }
+
+    // Get bOffset6
+    i = 0;
+    while(tokArray[3][i] != '#' && tokArray[3][i] != 'x')
+    {
+        ++i;
+    }
+    if (tokArray[3][i] == '#')
+    {
+        while(tokArray[3][i + 1])
+        {
+            offset6 = offset6 * 10 + (tokArray[3][i + 1] - '0');
+            ++i;
+        }
+    }
+
+    if (tokArray[3][i] == 'x')
+    {
+        while(tokArray[3][i + 1])
+        {
+            if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
+            {
+                offset6 = offset6 * 16 + (tokArray[3][i + 1] - '0');
+                ++i;
+            }
+
+            if (tokArray[3][i + 1] >= 'a' && tokArray[3][i + 1] <= 'f')
+            {
+                offset6 = offset6 * 16 + (tokArray[3][i + 1] - 'a');
+                ++i;
+            }
+        }
+    }
+
+    // Error checking
+    if (offset6 > 31 || offset6 < -32)
+    {
+        printf("Error (LDW): Invalid offset\n");
+        exit(3);
+    }
+
+    offset6 = offset6 & 0x3F;
+
+    return ((6 << 12) | (DR << 9) | (baseR << 6) | (offset6));
+}
+
+unsigned short lea(const short lineAddress)
+{
+    int DR = 0;
+    int pcOffset9 = 0;
+    int labelAddress = 0;
+
+    if (!tokArray[1] || !tokArray[2])
+    {
+        printf("Error (LEA): Missing Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[3])
+    {
+        printf("Error (LEA): Too many operands\n");
+        exit(4);
+    }
+
+    if (tokArray[1][0] != 'r')
+    {
+        printf("Error (LEA): Invalid operands\n");
+        exit(4);
+    }
+
+    // Get DR
+    int i = 1;
+    while(tokArray[1][i])
+    {
+        DR = DR * 10 + (TokArray[i] - '0');
+        ++i;
+    }
+    // Get pcOffset9
+    for (int i = 0; i < MAX_SYMBOLS; ++i)
+    {
+        if (!strcmp(tokArray[2], symbolTable[i].label))
+        {
+            labelAddress = symbolTable[i].address;
+        }
+    }
+
+    if (labelAddress == 0)
+    {
+        printf("Error (LEA): Undefined label\n");
+        exit(1);
+    }
+
+    pcOffset9 = (labelAddress - (lineAddress + 2)) / 2;
+
+    if (pcOffset9 > 255 || pcOffset9 < -256)
+    {
+        printf("Error (LEA): Invalid offset\n");
+        exit(4);
+    }
+
+    pcOffset9 = pcOffset9 & 0x1FF;
+
+    return ((14 << 12) | (DR << 9) | (pcOffset9));
+}
+
+unsigned short not_xor(void)
+{
+    int DR = 0, SR = 0, SR1 = 0, SR2 = 0, imm5 = 0;
+
+    // 1. not
+    if (!strcmpy(tokArray[0], "not"))
+    {
+        if (!tokArray[1] || !tokArray[2])
+        {
+            printf("Error: missing operand\n");
+            exit(4);
+        }
+
+        if (tokArray[3])
+        {
+            printf("Error: too many operands\n");
+            exit(4);
+        }
+
+        if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
+        {
+            printf("Error: Invalid Operand\n");
+            exit(4);
+        }
+
+        // Get DR
+        int i = 1;
+        while(tokArray[1][i])
+        {
+            DR = DR * 10 + (tokArray[1][i] - '0');
+            ++i;
+        }
+
+        // Get SR
+        int i = 1;
+        while(tokArray[2][i])
+        {
+            SR = SR * 10 + (tokArray[2][i] - '0');
+            ++i;
+        }
+
+        return ((9 << 12) | (DR << 9) | (SR << 6) | (63));
+    }
+
+    // 2. xor
+    if (!strcmp(tokArray[0], "xor"))
+    {
+        if (!tokArray[1] || !tokArray[2] || !tokArray[3])
+        {
+            printf("Error: missing operand\n");
+            exit(4);
+        }
+
+        if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
+        {
+            printf("Error: Invalid Operand\n");
+            exit(4);
+        }
+
+        if (tokArray[3][0] != 'r' && tokArray[3][0] != '#' && tokArray[3][0] != 'x')
+        {
+            printf("Error: invalid operand\n");
+            exit(4);
+        }
+
+        // Get DR
+        int i = 1;
+        while(tokArray[1][i])
+        {
+            DR = DR * 10 + (tokArray[1][i] - '0');
+            ++i;
+        }
+
+        // Get SR1
+        i = 1;
+        while (tokArray[2][i])
+        {
+            SR1 = SR1 * 10 + (tokArray[2][i] - '0');
+            ++i;
+        }
+
+        // Get Operand2
+        // 1. SR2
+        if (tokArray[3][0] == 'r')
+        {
+            i = 1;
+            while (tokArray[3][i])
+            {
+                SR2 = SR2 * 10 + (tokArray[3][i] - '0');
+                ++i;
+            }
+
+            return ((9 << 12) | (DR << 9) | (SR1 << 6) | (SR2));
+        }
+        // 2. imm5
+        else
+        {
+            i = 0;
+            while (tokArray[3][i] != '#' && tokArray[3][i] != 'x')
+            {
+                ++i;
+            }
+
+            if (tokArray[3][i] == '#')
+            {
+                while(tokArray[3][i + 1])
+                {
+                    imm5 = imm5 * 10 + (tokArray[3][i + 1] - '0');
+                    ++i;
+                }
+            }
+
+            if (tokArray[3][i] == 'x')
+            {
+                while (tokArray[3][i + 1])
+                {
+                    if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
+                    {
+                        imm5 = imm5 * 16 + (tokArray[3][i + 1] - '0');
+                    }
+
+                    if (tokArray[3][i + 1] >= 'a' && tokArray[3][i + 1] <= 'z')
+                    {
+                        imm5 = imm5 * 16 + (tokArray[3][i + 1] - 'a');
+                    }
+                }
+            }
+
+            if (imm5 > 15 || imm5 < -16)
+            {
+                printf("Error: Invalid constant\n");
+                exit(3);
+            }
+
+            imm5 = imm5 & 0x1F;
+
+            return ((9 << 12) | (DR << 9) | (SR1 << 6) | (1 << 5) | (imm5));
+        }
+
+    }
+}
+
+
+int main(int argc, char* argv[])
+{
+    // Check parameters
+    int num = 0;
+    char* progName = NULL;
+    char* asmName = NULL;
+    char* objName = NULL;
+
+    num = argc;
+    progName = argv[0];
+    asmName = argv[1];
+    objName = argv[2];
+
+    printf("program name is '%s'\n", progName);
+    printf("assembly file's name is '%s'\n", asmName);
+    printf("output file name is '%s'\n", objName);
+
+    // Parameter Error Checking
+    if (num < 3)
+    {
+        printf("Usage: assemble <source.asm> <out.obj>\n");
+        exit(4)
+    }
+
+    // FILE I/O
+    inFile = fopen(asmName, "r");
+    oFile = fopen(objName, "w");
+
+    if (!inFile)
+    {
+        printf("Cannot open file '%s'\n", asmName);
+        exit(4);
+    }
+
+    if (!oFile)
+    {
+        printf("Cannot open file '%s'\n", objName);
+        exit(4);
+    }
+
+    int labelIndex = 0;
+    int lineNum = 0;
+
+    // First Pass
+    while(1)
+    {
+        // Parse a line from an asm file
+        parse();
+        // To calculate the label's address
+        ++lineNum;
+
+        // Get whether the first token in a line from an asm file is a Label
+        int tokVal = tokToValue(tokArray[0]);
+
+        // To fill the symbol table, need the label's address, so must process the baseAddress
+        if (tokVal == -2) // -2 means the token is .orig
+        {
+            baseAddress();
+            lineNum = 1;
+        }
+
+        // The directive .orig must be the first, but not a label be a first
+        // 考虑一种情况：如果不是现有.orig声明一个baseAddress，而是先出现一个label，这个label我该如何处理？毕竟我现在不知道这个label的address，所以要杜绝这种情况
+        if (!foundOrig)
+        {
+            printf(".orig must be the first in the assmbly file\n");
+            exit(4);
+        }
+
+        // Process label to fill the symbol table
+        if (tokVal == -1) // -1 means the token is a Label
+        {
+            // Label Error checking
+            // Invalid label
+            int tokLength = strlen(tokArray[0]);
+
+            if (!(tokLength >= 1 && tokLength <= 20))
+            {
+                printf("Inavlid label! Label consist of 1 to 20 alphanumeric characters"\n);
+                exit(4);
+            }
+
+            if (tokArray[0][0] < 'a' || tokArray[0][0] > 'z')
+            {
+                printf("Invalid label! Label should start with a letter of the alphabet\n");
+                exit(4);
+            }
+
+            if (!strcmp(tokArray[0], "add") || !strcmp(tokArray[0], "and") || !strcmp(tokArray[0], "brn") || !strcmp(tokArray[0], "brz") || !strcmp(tokArray[0], "brp") || !strcmp(tokArray[0], "br")
+                    || !strcmp(tokArray[0], "brzp") || !strcmp(tokArray[0], "brnp") || !strcmp(tokArray[0], "brnz") || !strcmp(tokArray[0], "brnzp") || !strcmp(tokArray[0], "jmp")
+                    || !strcmp(tokArray[0], "ret") || !strcmp(tokArray[0], "jsr") || !strcmp(tokArray[0], "jsrr") || !strcmp(tokArray[0], "ldb") || !strcmp(tokArray[0], "ldw")
+                    || !strcmp(tokArray[0], "lea") || !strcmp(tokArray[0], "not") || !strcmp(tokArray[0], "ret") || !strcmp(tokArray[0], "rti") || !strcmp(tokArray[0], "lshf")
+                    || !strcmp(tokArray[0], "rshfl") || !strcmp(tokArray[0], "rshfa") || !strcmp(tokArray[0], "stb") || !strcmp(tokArray[0], "stw") || !strcmp(tokArray[0], "trap")
+                    || !strcmp(tokArray[0], "xor") || !strcmp(tokArray[0], "xor") || !strcmp(tokArray[0], "orig") || !strcmp(tokArray[0], "fill") || !strcmp(tokArray[0], "end"))
+            {
+                printf("Label cannot be the same as an opcode or pseudo-op\n");
+                exit(4);
+            }
+
+            if (tokArray[0][0] == 'x')
+            {
+                printf("A valid label must start with a letter other than 'x'\n");
+                exit(4);
+            }
+
+            for (int i = 0; i < tokLength; ++i)
+            {
+                if (tokArray[0][i] < 'a' || tokArray[0][i] > 'z' || tokArray[0][i] < '0' || tokArray[0][i] > '9')
+                {
+                    printf("A valid label shoud consist solely of alphanumeric characters: a to z, 0 to 9\n");
+                    exit(4);
+                }
+            }
+
+            if (!strcmp(tokArray[0], "in") || !strcmp(tokArray[0], "out") || !strcmp(tokArray[0], "getc") || !strcmp(tokArray[0], "puts"))
+            {
+                printf("A valid label cannot be IN, OUT, GETC, or PUTS\n");
+                exit(4);
+            }
+
+            // Have the same Label
+            for (int i = 0; i < labelIndex; ++i)
+            {
+                if (strcmp(symbolTable[i].label, tokArray[0] == 0))
+                {
+                    printf("Have the same label\n");
+                    exit(4);
+                }
+            }
+
+            // Fill the symbol table
+            int address = baseAddress + (lineNum - 2) * 2;
+            symbolTable[labelIndex].address = address;
+            strcpy(symbolTable[labelIndex].label, tokArray[0]);
+            ++labelIndex;
+
+            // If there's a .end after the label
+            if (tokToValue(tokArray[1]) == =3)
+            {
+                break;
+            }
+        }
+
+        if (tokVal == -3) // -3 means .end
+        {
+            break;
+        }
+    }
+
+    // Let the file pointer to the beginning of the file
+    rewind(inFile);
+    lineNum = 0;
+
+    while(1)
+    {
+        // Second pass
+        // 1. Convert instruction into machine code
+        // 2. write the machine code into the output file
+        parse();
+        ++lineNum;
+
+        unsigned short lineAddress = baseAddress + (lineNum - 2) * 2;
+
+        int tokValue = tokToValue(tokArray[0]);
+        if (tokValue == -1) // first token is a label
+        {
+            // Delete label
+            for (int i = 1; i < 6; ++i)
+            {
+                tokArray[i - 1] = tokArray[i];
+            }
+            tokArray[5] = '\0';
+
+            tokValue = tokToValue(tokArray[0]);
+            if (tokValue == -1)
+            {
+                printf("Invalid opcode\n");
+                exit(2);
+            }
+        }
+
+        // opcode arg1, arg2, arg3
+       if (tokArray[4])
+       {
+           printf("Too many arguments\n");
+           exit(4);
+       }
+
+       // Check register operand, but not Imm operand, cause Imm operand's check should based on the instruction itself.
+       for (int i = 1; i <= 3; ++i)
+       {
+           if (tokArray[i])
+           {
+               int regNum = 0;
+               if (tokArray[i][0] == 'r')
+               {
+                   j = 1;
+                   while(tokArray[i][j])
+                   {
+                       regNum = regNum * 10 + (tokArray[i][j] - '0');
+                   }
+
+                   if (regNum < 0 || regNum > 7)
+                   {
+                       printf("Invalid register operand\n");
+                       exit(4);
+                   }
+               }
+           }
+       }
+
+       if (tokValue == -3) // .end directive
+           break;
+
+       unsigned short instruction = convert(tokValue, lineAddress);
+
+       // 2. Write machine code into the output file
+       fprintf(oFile, "0x%.4X\n", instruction);
+    }
+
+    // close file
+    fclose(inFile);
+    fclose(oFile);
+
+    return 0;
+}

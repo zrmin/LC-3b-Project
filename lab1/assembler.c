@@ -293,6 +293,27 @@ unsigned short convert(const int tokValue, const short lineAddress)
     }
 }
 
+int my_atoi(const char* str)
+{
+    int neg = 1;
+    int i = 0;
+
+    if (*str == '-')
+    {
+        neg = -1;
+        ++i;
+    }
+
+    int num = 0;
+    while (*(str + i))
+    {
+        num = num * 10 + (*(str + i) - '0');
+        ++i;
+    }
+
+    return neg * num;
+}
+
 unsigned short add(void)
 {
     int DR = 0, SR1 = 0, SR2 = 0, imm5 = 0;
@@ -346,17 +367,21 @@ unsigned short add(void)
     else // Operand2 is imm5
     {
         i = 0;
-        while (tokArray[3][i] != 'x' && tokArray[3][i] != '#')
-        {
-            ++i;
-        }
         if (tokArray[3][i] == '#')
         {
-            while(tokArray[3][i + 1])
+            printf("*******************************\n\n\n\n\n");
+            printf("the imm5 is a decimal number\n");
+            imm5 = my_atoi(&tokArray[3][i + 1]);
+            printf("imm5 = %d\n", imm5);
+
+           /* while(tokArray[3][i + 1])
             {
+                printf("tokArray[3][i + 1] = %c\n", tokArray[3][i + 1]);
                 imm5 = imm5 * 10 + (tokArray[3][i + 1] - '0');
+                printf("imm5 = %d\n", imm5);
                 ++i;
             }
+            */
         }
 
         if (tokArray[3][i] == 'x')

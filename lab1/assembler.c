@@ -866,6 +866,340 @@ unsigned short lea(const short lineAddress)
     return ((14 << 12) | (DR << 9) | (pcOffset9));
 }
 
+unsigned short rti(void)
+{
+    if (tokArray[1] || tokArray[2] || tokArray[3])
+    {
+        printf("Error (RTI): Too many operands\n");
+        exit(4);
+    }
+
+    return ((8 << 12));
+}
+
+unsigned short shf(void)
+{
+    int DR = 0;
+    int SR = 0;
+    int amount4 = 0;
+
+    if (!tokArray[1] || !tokArray[2] || !tokArray[3])
+    {
+        printf("Error (SHF): Missing Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[3][0] != '#' && tokArray[3][0] != 'x')
+    {
+        printf("Error (SHF): Invalid Operands\n");
+        exit(4);
+    }
+
+    // Get DR
+    int i = 1;
+    while (tokArray[1][1])
+    {
+        DR = DR * 10 + (tokArray[1][1] - '0');
+        ++i;
+    }
+
+    // Get SR
+    i = 1;
+    while (tokArray[2][1])
+    {
+        SR = SR * 10 + (tokArray[2][1] - '0');
+        ++i;
+    }
+
+    // Get amount4
+    i = 0;
+    while (tokArray[3][i] != 'x' && tokArray[3][i] != '#')
+    {
+        ++i;
+    }
+
+    if (tokArray[3][i] == '#')
+    {
+        while (tokArray[3][i + 1])
+        {
+            amount4 = amount4 * 10 + (tokArray[3][i + 1] -'0');
+            ++i;
+        }
+    }
+
+    if (tokArray[3][i] == 'x')
+    {
+        while(tokArray[3][i + 1])
+        {
+            if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
+            {
+                amount4 = amount4 * 16  + (tokArray[3][i + 1] - '0');
+                ++i;
+            }
+
+            if (tokArray[3][i + 1] >= 'a' && tokArray[3][i + 1] <= 'f')
+            {
+                amount4 = amount4 * 16 + (tokArray[3][i + 1] - 'a');
+                ++i;
+            }
+        }
+    }
+
+    // Error checking
+    if (amount4 > 7 || amount < 0)
+    {
+        printf("Error (SHF): Invalid constant\n");
+        exit(3);
+    }
+
+    amount4 = amount4 & 0x0F;
+
+    if (!strcmp(tokArray[0], "lshf"))
+    {
+        return ((13 << 12) | (DR << 9) | (SR << 6) | (amount4));
+    }
+
+    if (!strcmp(tokArray[0], "rshfl"))
+    {
+        return ((13 << 12) | (DR << 9) | (SR << 6) | (1 << 4) | (amount4));
+    }
+
+    if (!strcmp(tokArray[0], "rshfa"))
+    {
+        return ((13 << 12) | (DR << 9) | (SR << 6) | (3 << 4) | (amount4));
+    }
+}
+
+unsigned short stb(void)
+{
+    int SR = 0;
+    int BaseR = 0;
+    int boffset6 = 0;
+
+    if (!tokArray[1] || !tokArray[2] || !tokArray[3])
+    {
+        printf("Error (STB): Missing Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
+    {
+        printf("Error (STB): Invalid Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[3][0] != '#' && tokArray[3][0] != 'x')
+    {
+        printf("Error (STB): Invalid Operands\n");
+        exit(4);
+    }
+
+    // Get SR
+    int i = 1;
+    while (tokArray[1][i])
+    {
+        SR = SR * 10 + (tokArray[1][i]);
+        ++i;
+    }
+
+    // Get BaseR
+    i = 1;
+    while (tokArray[2][i])
+    {
+        BaseR = BaseR * 10 + (tokArray[2][i]);
+        ++i;
+    }
+
+    // Get boffset6
+    i = 0;
+    while (tokArray[3][i] != '#' && tokArray[3][i] != 'x')
+    {
+        ++i;
+    }
+
+    if (tokArray[3][i] == '#')
+    {
+        while (tokArray[3][i + 1])
+        {
+            boffset6 = boffset6 * 10 + (tokArray[3][i + 1] - '0');
+            ++i;
+        }
+    }
+
+    if (tokArray[3][i] == 'x')
+    {
+        while (tokArray[3][i + 1])
+        {
+            if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
+            {
+                boffset6 = boffset6 * 16 + (tokArray[3][i + 1] - '0');
+                ++i;
+            }
+
+            if (tokArray[3][i + 1] >= 'a' && tokArray[3][i + 1] <= 'f')
+            {
+                boffset6 = boffset6 * 16 + (tokArray[3][i + 1] - 'a');
+                ++i;
+            }
+        }
+    }
+
+    if (boffset6 > 31 || boffset6 < -32)
+    {
+        printf("Error (STB): Invalid constant\n");
+        exit(3);
+    }
+
+    boffset6 = boffset6 & 0x3F;
+
+    return ((3 << 12) | (SR << 9) | (BaseR << 6) | (boffset6));
+}
+
+unsigned short stw(void)
+{
+    int SR = 0;
+    int BaseR = 0;
+    int offset6 = 0;
+
+    if (!tokArray[1] || !tokArray[2] || !tokArray[3])
+    {
+        printf("Error (STW): Missing Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
+    {
+        printf("Error (STW): Invalid operands\n");
+        exit(4);
+    }
+
+    if (tokArray[3][0] != '#' && tokArray[3][0] != 'x')
+    {
+        printf("Error (STW): Invalid operands\n");
+        exit(4);
+    }
+
+    // Get SR
+    int i = 1;
+    while (tokArray[1][i])
+    {
+        SR = SR * 10 + (tokArray[1][i] - '0');
+        ++i;
+    }
+    // Get BaseR
+    i = 1;
+    while (tokArray[2][i])
+    {
+        BaseR = BaseR * 10 + (tokArray[2][i] - '0');
+        ++i;
+    }
+    // Get offset6
+    i = 0;
+    if (tokArray[3][i] == '#')
+    {
+        while (tokArray[3][i + 1])
+        {
+            if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
+            {
+                offset6 = offset6 * 10 + (tokArray[3][i + 1] - '0');
+                ++i;
+            }
+        }
+    }
+
+    if (tokArray[3][i] == 'x')
+    {
+        while (tokArray[3][ i + 1)
+        {
+            if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
+            {
+                offset6 = offset6 * 16 + (tokArray[3][i + 1] - '0');
+                ++i;
+            }
+
+            if (tokArray[3][i + 1] >= 'a' && tokArray[3][i + 1] <= 'f')
+            {
+                offset6 = offset6 * 16 + (tokArray[3][i + 1] - 'a');
+                ++i;
+            }
+        }
+    }
+
+    if (offset6 > 31 || offset6 < -32)
+    {
+        printf("Error (STW): Invalid constant\n");
+        exit(3);
+    }
+
+    boffset6 = boffset6 & 0x3F;
+
+    return ((7 << 12) | (SR << 9) | (BaseR << 6) | (offset6));
+}
+
+unsigned short trap_halt(void)
+{
+    int trapvect8 = 0;
+
+    // trap
+    if (!strcmp(tokArray[0], "trap"))
+    {
+        if (!tokArray[1])
+        {
+            printf("Error (TRAP): Missing Operands\n");
+            exit(4);
+        }
+
+        if (tokArray[2] || tokArray[3])
+        {
+            printf("Error (TRAP): Too many operands\n");
+            exit(4);
+        }
+
+        if (tokArray[1][0] != 'x')
+        {
+            printf("Error (TRAP): Invalid trapvect8\n");
+            exit(4);
+        }
+
+        // Get trapvect8
+        int i = 1;
+        while(tokArray[1][i])
+        {
+            if (tokArray[1][i] >= '0' && tokArray[1][i] <= '9')
+            {
+                trapvect8 = trapvect8 * 16 + (tokArray[1][i] - '0');
+                ++i;
+            }
+
+            if (tokArray[1][i] >= 'a' && tokArray[1][i] <= 'f')
+            {
+                trapvect8 = trapvect8 * 16 + (tokArray[1][i] - 'a');
+                ++i;
+            }
+        }
+
+        if (trapvect8 > 63 || trapvect8 < 0)
+        {
+            printf("Error (TRAP): Invalid trapvect8\n");
+            exit(3);
+        }
+
+        return ((15 << 12) | (trapvect8));
+    }
+
+    // halt
+    if (!strcmp(tokArray[0],"halt"))
+    {
+        if (tokArray[1] || tokArray[2] || tokArray[3])
+        {
+            printf("Error (HALT): Too many operands\n");
+            exit(4);
+        }
+
+        return ((15 << 12) | (37));
+    }
+}
+
 unsigned short not_xor(void)
 {
     int DR = 0, SR = 0, SR1 = 0, SR2 = 0, imm5 = 0;
@@ -1008,6 +1342,142 @@ unsigned short not_xor(void)
     }
 }
 
+unsigned short orig(void)
+{
+    unsigned short baseAddress = 0;
+
+    if (!tokArray[1])
+    {
+        printf("Error (.ORIG): Missing Operand\n");
+        exit(4);
+    }
+
+    if (tokArray[2] || tokArray[3])
+    {
+        printf("Error (.ORIG): Too many Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[1][0] != 'x' && tokArray[1][0] != '#')
+    {
+        printf("Error (.ORIG): Invalid Operand\n");
+        exit(4);
+    }
+
+    int i = 0;
+    // Get baseAddress
+    if (tokArray[1][i] == '#')
+    {
+        while(tokArray[1][i + 1])
+        {
+            if (tokArray[1][i + 1] >= '0' && tokArray[1][i + 1] <= '9')
+            {
+                baseAddress = baseAddress * 10 + (tokArray[1][i + 1] - '0');
+                ++i;
+            }
+        }
+    }
+
+    i = 0;
+    if (tokArray[1][i] == 'x')
+    {
+        while (tokArray[1][i + 1])
+        {
+            if (tokArray[1][i + 1] >= '0' && tokArray[1][i + 1] <= '9')
+            {
+                baseAddress = baseAddress * 16 + (tokArray[1][i + 1] - '0');
+                ++i;
+            }
+
+            if (tokArray[1][i + 1] >= 'a' && tokArray[1][i + 1] <= 'f')
+            {
+                baseAddress = baseAddress * 16 + (tokArray[1][i + 1] - 'a');
+                ++i;
+            }
+        }
+    }
+
+    // Error checking
+    if (baseAddress > 65535 || baseAddress < 0)
+    {
+        printf("Error (.ORIG): Invalid Base Address\n");
+        exit(3);
+    }
+
+    return baseAddress;
+}
+
+unsigned short fill(void)
+{
+    int value = 0;
+
+    if (!tokArray[1])
+    {
+        printf("Error (.FILL): Missing Operand\n");
+        exit(4);
+    }
+
+    if (tokArra[2] || tokArray[3])
+    {
+        printf("Error (.FILL): Too many Operands\n");
+        exit(4);
+    }
+
+    if (tokArray[1][0] != 'x' && tokArray[1][0] != '#')
+    {
+        printf("Error (.FILL): Invalid Operand\n");
+        exit(4);
+    }
+
+    // Get value
+    int i = 0;
+    if (tokArray[1][i] == '#')
+    {
+        while (tokArray[1][i + 1])
+        {
+            value = value * 10 + (tokArray[1][i + 1] - '0');
+            ++i;
+        }
+    }
+
+    i = 0;
+    if (tokArray[1][i] == 'x')
+    {
+        while (tokArray[1][i + 1])
+        {
+            if (tokArray[1][i + 1] >= '0' && tokArray[1][i + 1] <= '9')
+            {
+                value = value * 16 + (tokArray[1][i + 1] -'0');
+                ++i;
+            }
+
+            if (tokArray[1][i + 1] >= 'a' && tokArray[1][i + 1] <= 'z')
+            {
+                value = value * 16 + (tokArray[1][i + 1] - 'a');
+                ++i;
+            }
+        }
+    }
+
+    if (value > 32767 && value < -32768)
+    {
+        printf("Error (.FILL): Invalid constant\n");
+        exit(3);
+    }
+
+    return value;
+}
+
+unsigned short nop(void)
+{
+    if (tokArray[1] || tokArray[2] || tokArray[3])
+    {
+        printf("Error (NOP): Too many Operands\n");
+        exit(4);
+    }
+
+    return (0);
+}
 
 int main(int argc, char* argv[])
 {

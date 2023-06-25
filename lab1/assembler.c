@@ -5,17 +5,18 @@
 
 const int MAX_LENGTH = 255;
 const int MAX_SYMBOLS = 200;
-
+// const int MAX_SYMBOL_LENGTH = 20;
+#define MAX_SYMBOL_LENGTH 20
 // Symbol Table
 typedef struct
 {
     unsigned short address;
-    char* label;
+    char label[MAX_SYMBOL_LENGTH + 1];
 } symbolEntry;
 
 symbolEntry symbolTable[200];
 
-char* tokArray[6] = {""};
+char* tokArray[6] = {NULL};
 
 int foundOrig = 0;
 unsigned short baseAddress = 0;
@@ -36,8 +37,9 @@ void my_tolower(char* c)
 void parse(void)
 {
     fgets(line, MAX_LENGTH, inFile);
-    printf("Original line = %s\n", line);
+    printf("Original line = '%s'\n", line);
 
+    // Convert to lowercase
     int i = 0;
     while(line[i])
     {
@@ -45,7 +47,7 @@ void parse(void)
         line[i] = tolower(line[i]);
         ++i;
     }
-    printf("Convert to lowercase: line = %s\n", line);
+    printf("Convert to lowercase: line = '%s'\n", line);
 
     // Ignore comments
     i = 0;
@@ -57,27 +59,40 @@ void parse(void)
     }
     line[i] = '\0';
 
-    printf("Ignore comments: line = %s\n", line);
+    printf("Ignore comments: line = '%s'\n", line);
 
     // Parse the line into tokens
     tokArray[0] = strtok(line, "\n\t\r ,");
+    printf("tokArray[0] = '%s'\n", tokArray[0]);
     i = 1;
-    while ((*(tokArray[i-1]) != '\0') && (i < 6))
+    while ((tokArray[i-1] != NULL) && (i < 6))
     {
-        tokArray[i] = strtok('\0', "\n\t\r ,");
+        printf("i = %d, tokArray[%d] = '%s', tokArray[%d] = '%s'\n", i, i-1, tokArray[i - 1], i, tokArray[i]);
+        tokArray[i] = strtok(NULL, "\n\t\r ,");
+        printf("tokArray[%d] = '%s'\n", i, tokArray[i]);
         ++i;
     }
 
     i = 0;
-    while((*(tokArray[i]) != '\0') && (i < 6))
+    printf("i = %d, tokArray[%d] = '%s'\n", i, i, tokArray[i]);
+    while((tokArray[i] != NULL) && (i < 6))
     {
         ++i;
+        printf("i = %d, tokArray[%d] = '%s'\n", i, i, tokArray[i]);
     }
+    printf("i = %d\n, tokArray[%d] = '%s'\n", i, i, tokArray[i]);
 
     while(i < 6)
     {
-        tokArray[i] = '\0';
+        tokArray[i] = NULL;
         ++i;
+    }
+
+    // Check tokArray
+    printf("***Check tokArray***\n");
+    for (int i = 0; i < 6; ++i)
+    {
+        printf("tokArray[%d] = '%s\n", i, tokArray[i]);
     }
 
     // If this is an empty line, parse the next line
@@ -165,12 +180,10 @@ void BaseAddress(void)
     }
 
     int i = 0;
-    while(tokArray[1][i] != 'x' || tokArray[1][i] != '#')
-        ++i;
-
     // Decimal number
     if (tokArray[1][i] == '#')
     {
+        printf("\n baseAddress is a decimal number\n");
         ++i;
         while (tokArray[1][i] != '\0')
         {
@@ -182,17 +195,22 @@ void BaseAddress(void)
     // Hex number
     if (tokArray[1][i] == 'x')
     {
+        printf("\nbaseAddress is a hex number\n");
         ++i;
         while(tokArray[1][i] != '\0')
         {
+            printf("tokArray[1][%d] = '%c'\n", i, tokArray[1][i]);
             if (tokArray[1][i] >= '0' && tokArray[1][i] <= '9')
             {
                 baseAddress = baseAddress * 16 + (tokArray[1][i] - '0');
+                printf("baseAddress = %d\n", baseAddress);
+                ++i;
             }
 
             if (tokArray[1][i] >= 'a' && tokArray[1][i] <= 'f')
             {
                 baseAddress = baseAddress * 16 + (tokArray[1][i] - 'a');
+                ++i;
             }
         }
     }
@@ -362,6 +380,7 @@ unsigned short add(void)
         // Imm5 error checking
         if (imm5 > 15 || imm5 < -16)
         {
+            printf("ADD: imm5 = %d\n", imm5);
             printf("Error: Invalid constant\n");
             exit(3);
         }
@@ -779,7 +798,7 @@ unsigned short ldw(void)
         exit(4);
     }
 
-    if (tokArray[3][0] != '#' || tokArray[3][0] != 'x')
+    if (tokArray[3][0] != '#' && tokArray[3][0] != 'x')
     {
         printf("Error (LDW): Invalid operand\n");
         exit(4);
@@ -1573,10 +1592,12 @@ int main(int argc, char* argv[])
 
         // Get whether the first token in a line from an asm file is a Label
         int tokVal = tokToValue(tokArray[0]);
+        printf("\n The first token in a line: tokVal = %d\n", tokVal);
 
         // To fill the symbol table, need the label's address, so must process the baseAddress
         if (tokVal == -2) // -2 means the token is .orig
         {
+            printf("\nMetting .ORIG\n");
             BaseAddress();
             lineNum = 1;
         }
@@ -1592,9 +1613,11 @@ int main(int argc, char* argv[])
         // Process label to fill the symbol table
         if (tokVal == -1) // -1 means the token is a Label
         {
+            printf("*** There's a label!!!*** \n");
             // Label Error checking
             // Invalid label
             int tokLength = strlen(tokArray[0]);
+            printf("The label's length = %d\n", tokLength);
 
             if (!(tokLength >= 1 && tokLength <= 20))
             {
@@ -1627,8 +1650,9 @@ int main(int argc, char* argv[])
 
             for (int i = 0; i < tokLength; ++i)
             {
-                if (tokArray[0][i] < 'a' || tokArray[0][i] > 'z' || tokArray[0][i] < '0' || tokArray[0][i] > '9')
+                if ((tokArray[0][i] < 'a' && tokArray[0][i] > 'z') || (tokArray[0][i] < '0' && tokArray[0][i] > '9'))
                 {
+                    printf("i = %d, tokArray[0][%d] = %c\n", i, i, tokArray[0][i]);
                     printf("A valid label shoud consist solely of alphanumeric characters: a to z, 0 to 9\n");
                     exit(4);
                 }
@@ -1652,9 +1676,16 @@ int main(int argc, char* argv[])
 
             // Fill the symbol table
             int address = baseAddress + (lineNum - 2) * 2;
+            printf("the label's address is %d\n", address);
             symbolTable[labelIndex].address = address;
+            printf("symbolTable[%d].address = %d\n", labelIndex, symbolTable[labelIndex].address);
+            printf("The label is '%s'\n", tokArray[0]);
+            printf("Begin strcpy!!!\n");
             strcpy(symbolTable[labelIndex].label, tokArray[0]);
+            printf("End strcpy!!!\n");
+            printf("symbolTable[%d].label = %s\n", labelIndex, symbolTable[labelIndex].label);
             ++labelIndex;
+            printf("labelIndex is now = %d\n", labelIndex);
 
             // If there's a .end after the label
             if (tokToValue(tokArray[1]) == -3)

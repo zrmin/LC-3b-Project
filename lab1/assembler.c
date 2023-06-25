@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
 
 const int MAX_LENGTH = 255;
 const int MAX_SYMBOLS = 200;
@@ -6,11 +9,11 @@ const int MAX_SYMBOLS = 200;
 // Symbol Table
 typedef struct
 {
-    int address;
+    unsigned short address;
     char* label;
 } symbolEntry;
 
-symbolEntry symbolTable[MAX_SYMBOL];
+symbolEntry symbolTable[200];
 
 char* tokArray[6] = {""};
 
@@ -18,39 +21,55 @@ int foundOrig = 0;
 unsigned short baseAddress = 0;
 FILE* inFile = NULL;
 FILE* oFile = NULL;
-char* line[MAX_LENGTH + 1];
+char line[255 + 1];
+
+void my_tolower(char* c)
+{
+    if (*c >= 65 && *c <= 90)
+    {
+        *c += 32;
+    }
+}
 
 // Parse an instruction to tokens
 // tokens: label, opcode, arg1, arg2, arg3, arg4
 void parse(void)
 {
-    fget(line, MAX_LENGTH, inFile);
+    fgets(line, MAX_LENGTH, inFile);
+    printf("Original line = %s\n", line);
+
     int i = 0;
     while(line[i])
     {
-        tolower(line[i]);
+        //my_tolower(&line[i]);
+        line[i] = tolower(line[i]);
         ++i;
     }
+    printf("Convert to lowercase: line = %s\n", line);
 
     // Ignore comments
     i = 0;
-    while(line[i] != ';' || line[i] != '\0' || line[i] != '\n')
+
+    while(line[i] != ';' && line[i] != '\0' && line[i] != '\n')
     {
+        printf("line[%d] = %c\n", i, line[i]);
         ++i;
     }
     line[i] = '\0';
 
+    printf("Ignore comments: line = %s\n", line);
+
     // Parse the line into tokens
     tokArray[0] = strtok(line, "\n\t\r ,");
     i = 1;
-    while((tokArray[i-1] != '\0') && (i < 6))
+    while ((*(tokArray[i-1]) != '\0') && (i < 6))
     {
         tokArray[i] = strtok('\0', "\n\t\r ,");
         ++i;
     }
 
     i = 0;
-    while((tokArray[i] != '\0') && (i < 6))
+    while((*(tokArray[i]) != '\0') && (i < 6))
     {
         ++i;
     }
@@ -64,6 +83,7 @@ void parse(void)
     // If this is an empty line, parse the next line
     if (!tokArray[0])
     {
+        printf("This is an empty line!\n");
         parse();
     }
 }
@@ -127,7 +147,7 @@ int tokToValue(const char* tok)
     if (!strcmp(tok, "nop"))
         return -5;
 
-    if (tok == '\0')
+    if (*tok == '\0')
         return -6;
 
     // Label
@@ -135,7 +155,7 @@ int tokToValue(const char* tok)
 }
 
 // Process baseAddress in order to caculate label's address
-void baseAddress(void)
+void BaseAddress(void)
 {
     // Error checking
     if (foundOrig)
@@ -194,6 +214,25 @@ void baseAddress(void)
 }
 
 // Convert instruction to machine code
+// Function prototype
+unsigned short add();
+unsigned short and();
+unsigned short br(const unsigned short lineAddress);
+unsigned short jmp_ret();
+unsigned short jsr_jsrr(const unsigned short lineAddress);
+unsigned short ldb();
+unsigned short ldw();
+unsigned short lea(const unsigned short lineAddress);
+unsigned short rti();
+unsigned short shf();
+unsigned short stb();
+unsigned short stw();
+unsigned short trap_halt();
+unsigned short not_xor();
+unsigned short orig();
+unsigned short fill();
+unsigned short nop();
+
 unsigned short convert(const int tokValue, const short lineAddress)
 {
     switch (tokValue) {
@@ -260,7 +299,7 @@ unsigned short add(void)
     }
 
     // Get DR
-    i = 1;
+    int i = 1;
     while(tokArray[1][i])
     {
         DR * 10 + (tokArray[1][i] - '0');
@@ -338,7 +377,7 @@ unsigned short and(void)
 
     // Operands error checking
     // AND DR, SR1, SR2(imm5)
-    if (!tokArray[1] || !toKArray[2] || !tokArray[3])
+    if (!tokArray[1] || !tokArray[2] || !tokArray[3])
     {
         printf("Error: missing operands\n");
         exit(4);
@@ -357,7 +396,7 @@ unsigned short and(void)
     }
 
     // Get DR
-    i = 1;
+    int i = 1;
     while(tokArray[1][i])
     {
         DR = DR * 10 + (tokArray[1][i] - '0');
@@ -429,7 +468,7 @@ unsigned short and(void)
     }
 }
 
-unsigned short br(const short lineAddress)
+unsigned short br(const unsigned short lineAddress)
 {
     int nzp = 0;
     unsigned int labelAddress = 0;
@@ -540,7 +579,7 @@ unsigned short jmp_ret(void)
             ++i;
         }
 
-        return ((12 << 12 | (baseR << 6));
+        return ((12 << 12) | (baseR << 6));
     }
 
     // 2. ret
@@ -556,9 +595,9 @@ unsigned short jmp_ret(void)
     }
 }
 
-unsigned short jsr_jsrr(const short lineAddress)
+unsigned short jsr_jsrr(const unsigned short lineAddress)
 {
-    int pcOffset11 = 0
+    int pcOffset11 = 0;
     int baseR = 0;
     int labelAddress = 0;
 
@@ -580,7 +619,7 @@ unsigned short jsr_jsrr(const short lineAddress)
         // Get label's address
         for (int i = 0; i < MAX_SYMBOLS; ++i)
         {
-            if (!strcmp(tokArray[1], symbolTalbe[i].label))
+            if (!strcmp(tokArray[1], symbolTable[i].label))
             {
                 labelAddress = symbolTable[i].address;
             }
@@ -592,7 +631,7 @@ unsigned short jsr_jsrr(const short lineAddress)
             exit(1);
         }
 
-        pcOffset11 = (labelAddress - （lineAddress + 2) / 2;
+        pcOffset11 = (labelAddress - (lineAddress + 2)) / 2;
 
         if (pcOffset11 > 1023 || pcOffset11 < -1024)
         {
@@ -600,9 +639,9 @@ unsigned short jsr_jsrr(const short lineAddress)
             exit(3);
         }
 
-        pcOffset = pcOffset & 0x7FF;
+        pcOffset11 = pcOffset11 & 0x7FF;
 
-        return (4 << 12) | (1 << 11) | (pcOffset11));
+        return ((4 << 12) | (1 << 11) | (pcOffset11));
     }
 
     // 2. jsrr
@@ -807,7 +846,7 @@ unsigned short ldw(void)
     return ((6 << 12) | (DR << 9) | (baseR << 6) | (offset6));
 }
 
-unsigned short lea(const short lineAddress)
+unsigned short lea(const unsigned short lineAddress)
 {
     int DR = 0;
     int pcOffset9 = 0;
@@ -835,7 +874,7 @@ unsigned short lea(const short lineAddress)
     int i = 1;
     while(tokArray[1][i])
     {
-        DR = DR * 10 + (TokArray[i] - '0');
+        DR = DR * 10 + (tokArray[1][i] - '0');
         ++i;
     }
     // Get pcOffset9
@@ -946,7 +985,7 @@ unsigned short shf(void)
     }
 
     // Error checking
-    if (amount4 > 7 || amount < 0)
+    if (amount4 > 7 || amount4 < 0)
     {
         printf("Error (SHF): Invalid constant\n");
         exit(3);
@@ -1109,7 +1148,7 @@ unsigned short stw(void)
 
     if (tokArray[3][i] == 'x')
     {
-        while (tokArray[3][ i + 1)
+        while (tokArray[3][ i + 1])
         {
             if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
             {
@@ -1131,7 +1170,7 @@ unsigned short stw(void)
         exit(3);
     }
 
-    boffset6 = boffset6 & 0x3F;
+    offset6 = offset6 & 0x3F;
 
     return ((7 << 12) | (SR << 9) | (BaseR << 6) | (offset6));
 }
@@ -1205,7 +1244,7 @@ unsigned short not_xor(void)
     int DR = 0, SR = 0, SR1 = 0, SR2 = 0, imm5 = 0;
 
     // 1. not
-    if (!strcmpy(tokArray[0], "not"))
+    if (!strcmp(tokArray[0], "not"))
     {
         if (!tokArray[1] || !tokArray[2])
         {
@@ -1234,7 +1273,7 @@ unsigned short not_xor(void)
         }
 
         // Get SR
-        int i = 1;
+        i = 1;
         while(tokArray[2][i])
         {
             SR = SR * 10 + (tokArray[2][i] - '0');
@@ -1417,7 +1456,7 @@ unsigned short fill(void)
         exit(4);
     }
 
-    if (tokArra[2] || tokArray[3])
+    if (tokArray[2] || tokArray[3])
     {
         printf("Error (.FILL): Too many Operands\n");
         exit(4);
@@ -1500,7 +1539,7 @@ int main(int argc, char* argv[])
     if (num < 3)
     {
         printf("Usage: assemble <source.asm> <out.obj>\n");
-        exit(4)
+        exit(4);
     }
 
     // FILE I/O
@@ -1525,10 +1564,12 @@ int main(int argc, char* argv[])
     // First Pass
     while(1)
     {
+        printf("\n\n***Begining First Pass!***\n\n");
         // Parse a line from an asm file
         parse();
         // To calculate the label's address
         ++lineNum;
+        printf("lineNum = %d\n", lineNum);
 
         // Get whether the first token in a line from an asm file is a Label
         int tokVal = tokToValue(tokArray[0]);
@@ -1536,7 +1577,7 @@ int main(int argc, char* argv[])
         // To fill the symbol table, need the label's address, so must process the baseAddress
         if (tokVal == -2) // -2 means the token is .orig
         {
-            baseAddress();
+            BaseAddress();
             lineNum = 1;
         }
 
@@ -1557,7 +1598,7 @@ int main(int argc, char* argv[])
 
             if (!(tokLength >= 1 && tokLength <= 20))
             {
-                printf("Inavlid label! Label consist of 1 to 20 alphanumeric characters"\n);
+                printf("Inavlid label! Label consist of 1 to 20 alphanumeric characters\n");
                 exit(4);
             }
 
@@ -1602,7 +1643,7 @@ int main(int argc, char* argv[])
             // Have the same Label
             for (int i = 0; i < labelIndex; ++i)
             {
-                if (strcmp(symbolTable[i].label, tokArray[0] == 0))
+                if (strcmp(symbolTable[i].label, tokArray[0]) == 0)
                 {
                     printf("Have the same label\n");
                     exit(4);
@@ -1616,7 +1657,7 @@ int main(int argc, char* argv[])
             ++labelIndex;
 
             // If there's a .end after the label
-            if (tokToValue(tokArray[1]) == =3)
+            if (tokToValue(tokArray[1]) == -3)
             {
                 break;
             }
@@ -1634,6 +1675,7 @@ int main(int argc, char* argv[])
 
     while(1)
     {
+        printf("***Begining Second Pass***\n\n");
         // Second pass
         // 1. Convert instruction into machine code
         // 2. write the machine code into the output file
@@ -1675,10 +1717,11 @@ int main(int argc, char* argv[])
                int regNum = 0;
                if (tokArray[i][0] == 'r')
                {
-                   j = 1;
+                   int j = 1;
                    while(tokArray[i][j])
                    {
                        regNum = regNum * 10 + (tokArray[i][j] - '0');
+                       ++j;
                    }
 
                    if (regNum < 0 || regNum > 7)

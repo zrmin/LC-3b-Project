@@ -32,6 +32,60 @@ void my_tolower(char* c)
     }
 }
 
+// Convert string to decimal number
+int my_atoi(const char* str)
+{
+    int neg = 1;
+    int i = 0;
+
+    if (*str == '-')
+    {
+        neg = -1;
+        ++i;
+    }
+
+    int num = 0;
+    while (*(str + i))
+    {
+        num = num * 10 + (*(str + i) - '0');
+        ++i;
+    }
+
+    return neg * num;
+}
+
+// Convert hex string to decimal number
+int hex2i(const char* str)
+{
+    int neg = 1;
+    int i = 0;
+
+    if (*str == '-')
+    {
+        neg = -1;
+        ++i;
+    }
+
+    int num = 0;
+    while(*(str + i))
+    {
+        if (*(str + i) >= '0' && *(str + i) <= '9')
+        {
+            num = num * 16 + (*(str + i) - '0');
+            ++i;
+        }
+
+        if (*(str + i) >= 'a' && *(str + i) <= 'f')
+        {
+            num = num * 16 + (*(str + i) - 'a') + 10;
+            ++i;
+        }
+    }
+
+    return neg * num;
+}
+
+
 // Parse an instruction to tokens
 // tokens: label, opcode, arg1, arg2, arg3, arg4
 void parse(void)
@@ -197,6 +251,8 @@ void BaseAddress(void)
     {
         printf("\nbaseAddress is a hex number\n");
         ++i;
+        baseAddress = hex2i(&tokArray[1][i]);
+        /*
         while(tokArray[1][i] != '\0')
         {
             printf("tokArray[1][%d] = '%c'\n", i, tokArray[1][i]);
@@ -213,6 +269,7 @@ void BaseAddress(void)
                 ++i;
             }
         }
+        */
     }
 
     // Error checking
@@ -291,27 +348,6 @@ unsigned short convert(const int tokValue, const short lineAddress)
         default:
             return 0xffff;
     }
-}
-
-int my_atoi(const char* str)
-{
-    int neg = 1;
-    int i = 0;
-
-    if (*str == '-')
-    {
-        neg = -1;
-        ++i;
-    }
-
-    int num = 0;
-    while (*(str + i))
-    {
-        num = num * 10 + (*(str + i) - '0');
-        ++i;
-    }
-
-    return neg * num;
 }
 
 unsigned short add(void)
@@ -393,6 +429,8 @@ unsigned short add(void)
 
         if (tokArray[3][i] == 'x')
         {
+            imm5 = hex2i(&tokArray[3][i + 1]);
+            /*
             while (tokArray[3][i + 1])
             {
                 if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
@@ -407,6 +445,7 @@ unsigned short add(void)
                     ++i;
                 }
             }
+            */
 
             printf("imm5 = %x\n", imm5);
         }
@@ -493,6 +532,8 @@ unsigned short and(void)
 
         if (tokArray[3][i] == 'x')
         {
+            imm5 = hex2i(&tokArray[3][i + 1]);
+            /*
             while(tokArray[3][i + 1])
             {
                 if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
@@ -507,6 +548,7 @@ unsigned short and(void)
                     ++i;
                 }
             }
+            */
         }
 
         if (imm5 > 15 || imm5 < -16)
@@ -801,17 +843,23 @@ unsigned short ldb(void)
 
     if (tokArray[3][i] == 'x')
     {
-        if (tokArray[3][i] >= '0' && tokArray[3][i] <= '9')
+        bOffset6 = hex2i(&tokArray[3][i + 1]);
+        /*
+        while(tokArray[3][i + 1])
         {
-            bOffset6 = bOffset6 * 16 + (tokArray[3][i] - '0');
-            ++i;
-        }
+            if (tokArray[3][i] >= '0' && tokArray[3][i] <= '9')
+            {
+                bOffset6 = bOffset6 * 16 + (tokArray[3][i] - '0');
+                ++i;
+            }
 
-        if (tokArray[3][i] >= 'a' && tokArray[3][i] <= 'f')
-        {
-            bOffset6 = bOffset6 * 16 + (tokArray[3][i] - 'a') + 10;
-            ++i;
+            if (tokArray[3][i] >= 'a' && tokArray[3][i] <= 'f')
+            {
+                bOffset6 = bOffset6 * 16 + (tokArray[3][i] - 'a') + 10;
+                ++i;
+            }
         }
+        */
     }
 
     // Error checking
@@ -896,6 +944,8 @@ unsigned short ldw(void)
 
     if (tokArray[3][i] == 'x')
     {
+        offset6 = hex2i(&tokArray[3][i + 1]);
+        /*
         while(tokArray[3][i + 1])
         {
             if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
@@ -910,6 +960,7 @@ unsigned short ldw(void)
                 ++i;
             }
         }
+        */
     }
     printf("LDW: bOffset6 = %d\n", offset6);
 
@@ -1047,6 +1098,8 @@ unsigned short shf(void)
 
     if (tokArray[3][i] == 'x')
     {
+        amount4 = hex2i(&tokArray[3][i + 1]);
+        /*
         while(tokArray[3][i + 1])
         {
             if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
@@ -1061,6 +1114,7 @@ unsigned short shf(void)
                 ++i;
             }
         }
+        */
     }
 
     // Error checking
@@ -1146,6 +1200,8 @@ unsigned short stb(void)
 
     if (tokArray[3][i] == 'x')
     {
+        boffset6 = hex2i(&tokArray[3][i + 1]);
+        /*
         while (tokArray[3][i + 1])
         {
             if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
@@ -1160,6 +1216,7 @@ unsigned short stb(void)
                 ++i;
             }
         }
+        */
     }
 
     if (boffset6 > 31 || boffset6 < -32)
@@ -1227,6 +1284,8 @@ unsigned short stw(void)
 
     if (tokArray[3][i] == 'x')
     {
+        offset6 = hex2i(&tokArray[3][i + 1]);
+        /*
         while (tokArray[3][ i + 1])
         {
             if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
@@ -1241,6 +1300,7 @@ unsigned short stw(void)
                 ++i;
             }
         }
+        */
     }
 
     if (offset6 > 31 || offset6 < -32)
@@ -1281,6 +1341,8 @@ unsigned short trap_halt(void)
 
         // Get trapvect8
         int i = 1;
+        trapvect8 = hex2i(&tokArray[1][i]);
+        /*
         while(tokArray[1][i])
         {
             if (tokArray[1][i] >= '0' && tokArray[1][i] <= '9')
@@ -1295,6 +1357,7 @@ unsigned short trap_halt(void)
                 ++i;
             }
         }
+        */
 
         if (trapvect8 > 63 || trapvect8 < 0)
         {
@@ -1432,6 +1495,8 @@ unsigned short not_xor(void)
 
             if (tokArray[3][i] == 'x')
             {
+                imm5 = hex2i(&tokArray[3][i + 1]);
+                /*
                 while (tokArray[3][i + 1])
                 {
                     if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
@@ -1444,6 +1509,7 @@ unsigned short not_xor(void)
                         imm5 = imm5 * 16 + (tokArray[3][i + 1] - 'a') + 10;
                     }
                 }
+                */
             }
 
             if (imm5 > 15 || imm5 < -16)
@@ -1499,6 +1565,8 @@ unsigned short orig(void)
     i = 0;
     if (tokArray[1][i] == 'x')
     {
+        baseAddress = hex2i(&tokArray[1][i + 1]);
+        /*
         while (tokArray[1][i + 1])
         {
             if (tokArray[1][i + 1] >= '0' && tokArray[1][i + 1] <= '9')
@@ -1513,6 +1581,7 @@ unsigned short orig(void)
                 ++i;
             }
         }
+        */
     }
 
     // Error checking
@@ -1563,6 +1632,8 @@ unsigned short fill(void)
     if (tokArray[1][i] == 'x')
     {
         printf("value is a hex number\n");
+        value = hex2i(&tokArray[1][i + 1]);
+        /*
         while (tokArray[1][i + 1])
         {
             if (tokArray[1][i + 1] >= '0' && tokArray[1][i + 1] <= '9')
@@ -1581,6 +1652,7 @@ unsigned short fill(void)
                 ++i;
             }
         }
+        */
         printf("FILL: value = %x\n", value);
     }
 

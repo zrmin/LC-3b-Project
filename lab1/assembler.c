@@ -24,6 +24,7 @@ FILE* inFile = NULL;
 FILE* oFile = NULL;
 char line[MAX_LENGTH + 1];
 
+// Convert uppercase character to lowercase character
 void my_tolower(char* c)
 {
     if (*c >= 65 && *c <= 90)
@@ -97,8 +98,7 @@ void parse(void)
     int i = 0;
     while(line[i])
     {
-        //my_tolower(&line[i]);
-        line[i] = tolower(line[i]);
+        my_tolower(&line[i]);
         ++i;
     }
     printf("Convert to lowercase: line = '%s'\n", line);

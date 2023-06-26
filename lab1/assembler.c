@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-const int MAX_LENGTH = 255;
-const int MAX_SYMBOLS = 200;
-// const int MAX_SYMBOL_LENGTH = 20;
+#define MAX_LENGTH 255
+#define MAX_SYMBOLS 200
 #define MAX_SYMBOL_LENGTH 20
+
 // Symbol Table
 typedef struct
 {
@@ -14,7 +14,7 @@ typedef struct
     char label[MAX_SYMBOL_LENGTH + 1];
 } symbolEntry;
 
-symbolEntry symbolTable[200];
+symbolEntry symbolTable[MAX_SYMBOLS];
 
 char* tokArray[6] = {NULL};
 
@@ -22,7 +22,7 @@ int foundOrig = 0;
 unsigned short baseAddress = 0;
 FILE* inFile = NULL;
 FILE* oFile = NULL;
-char line[255 + 1];
+char line[MAX_LENGTH + 1];
 
 void my_tolower(char* c)
 {

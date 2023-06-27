@@ -4,7 +4,7 @@
 #define ADD 1
 #define AND 5
 #define BR 0
-#define JMP 12
+#define JMP_RET 12
 #define JSR_R 4
 #define LDB 2
 #define LDW 6

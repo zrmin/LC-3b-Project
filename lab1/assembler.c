@@ -92,7 +92,6 @@ int hex2i(const char* str)
 void parse(void)
 {
     fgets(line, MAX_LENGTH, inFile);
-    printf("Original line = '%s'\n", line);
 
     // Convert to lowercase
     int i = 0;
@@ -101,40 +100,30 @@ void parse(void)
         my_tolower(&line[i]);
         ++i;
     }
-    printf("Convert to lowercase: line = '%s'\n", line);
 
     // Ignore comments
     i = 0;
 
     while(line[i] != ';' && line[i] != '\0' && line[i] != '\n')
     {
-        printf("line[%d] = %c\n", i, line[i]);
         ++i;
     }
     line[i] = '\0';
 
-    printf("Ignore comments: line = '%s'\n", line);
-
     // Parse the line into tokens
     tokArray[0] = strtok(line, "\n\t\r ,");
-    printf("tokArray[0] = '%s'\n", tokArray[0]);
     i = 1;
     while ((tokArray[i-1] != NULL) && (i < 6))
     {
-        printf("i = %d, tokArray[%d] = '%s', tokArray[%d] = '%s'\n", i, i-1, tokArray[i - 1], i, tokArray[i]);
         tokArray[i] = strtok(NULL, "\n\t\r ,");
-        printf("tokArray[%d] = '%s'\n", i, tokArray[i]);
         ++i;
     }
 
     i = 0;
-    printf("i = %d, tokArray[%d] = '%s'\n", i, i, tokArray[i]);
     while((tokArray[i] != NULL) && (i < 6))
     {
         ++i;
-        printf("i = %d, tokArray[%d] = '%s'\n", i, i, tokArray[i]);
     }
-    printf("i = %d\n, tokArray[%d] = '%s'\n", i, i, tokArray[i]);
 
     while(i < 6)
     {
@@ -142,17 +131,9 @@ void parse(void)
         ++i;
     }
 
-    // Check tokArray
-    printf("***Check tokArray***\n");
-    for (int i = 0; i < 6; ++i)
-    {
-        printf("tokArray[%d] = '%s\n", i, tokArray[i]);
-    }
-
     // If this is an empty line, parse the next line
     if (!tokArray[0])
     {
-        printf("This is an empty line!\n");
         parse();
     }
 }
@@ -237,7 +218,6 @@ void BaseAddress(void)
     // Decimal number
     if (tokArray[1][i] == '#')
     {
-        printf("\n baseAddress is a decimal number\n");
         ++i;
         while (tokArray[1][i] != '\0')
         {
@@ -249,7 +229,6 @@ void BaseAddress(void)
     // Hex number
     if (tokArray[1][i] == 'x')
     {
-        printf("\nbaseAddress is a hex number\n");
         ++i;
         baseAddress = hex2i(&tokArray[1][i]);
     }
@@ -339,19 +318,19 @@ unsigned short add(void)
     // Operand error checking
     if(!tokArray[1] || !tokArray[2] || !tokArray[3])
     {
-        printf("Error: Missing Operands\n");
+        printf("Error (ADD): Missing Operands\n");
         exit(4);
     }
 
     if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
     {
-        printf("Error: Invalid operand\n");
+        printf("Error (ADD): Invalid operand\n");
         exit(4);
     }
 
     if (tokArray[3][0] != 'r' && tokArray[3][0] != 'x' && tokArray[3][0] != '#')
     {
-        printf("Error: Invalid Operand\n");
+        printf("Error (ADD): Invalid Operand\n");
         exit(4);
     }
 
@@ -362,7 +341,6 @@ unsigned short add(void)
         DR = DR * 10 + (tokArray[1][i] - '0');
         ++i;
     }
-    printf("ADD: DR = %d\n", DR);
 
     // Get SR1
     i = 1;
@@ -371,7 +349,6 @@ unsigned short add(void)
         SR1 = SR1 * 10 + (tokArray[2][i] - '0');
         ++i;
     }
-    printf("ADD: SR1 = %d\n", SR1);
 
     // Get Operand2: register or imm
     if (tokArray[3][0] == 'r') // Operand2 is SR2
@@ -382,7 +359,6 @@ unsigned short add(void)
             SR2 = SR2 * 10 + (tokArray[3][i] - '0');
             ++i;
         }
-        printf("ADD: SR2 = %d\n", SR2);
         return ((1 << 12) | (DR << 9) | (SR1 << 6) | (SR2));
     }
     else // Operand2 is imm5
@@ -401,8 +377,7 @@ unsigned short add(void)
         // Imm5 error checking
         if (imm5 > 15 || imm5 < -16)
         {
-            printf("ADD: imm5 = %d\n", imm5);
-            printf("Error: Invalid constant\n");
+            printf("Error (ADD): Invalid constant\n");
             exit(3);
         }
 
@@ -419,19 +394,19 @@ unsigned short and(void)
     // AND DR, SR1, SR2(imm5)
     if (!tokArray[1] || !tokArray[2] || !tokArray[3])
     {
-        printf("Error: missing operands\n");
+        printf("Error (AND): missing operands\n");
         exit(4);
     }
 
     if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
     {
-        printf("Error: invalid operand\n");
+        printf("Error (AND): invalid operand\n");
         exit(4);
     }
 
     if (tokArray[3][0] != 'r' && tokArray[3][0] != '#' && tokArray[3][0] != 'x')
     {
-        printf("Error: invalid operand\n");
+        printf("Error (AND): invalid operand\n");
         exit(4);
     }
 
@@ -485,7 +460,7 @@ unsigned short and(void)
 
         if (imm5 > 15 || imm5 < -16)
         {
-            printf("Error: invalid constant\n");
+            printf("Error (AND): invalid constant\n");
             exit(3);
         }
 
@@ -542,7 +517,6 @@ unsigned short br(const unsigned short lineAddress)
     {
         nzp = 7;
     }
-    printf("BR: nzp = %d\n", nzp);
 
     // Get label's address
     for (int i = 0; i < MAX_SYMBOLS; ++i)
@@ -550,7 +524,6 @@ unsigned short br(const unsigned short lineAddress)
         if (!strcmp(tokArray[1], symbolTable[i].label))
         {
             labelAddress = symbolTable[i].address;
-            printf("\n\n\n ************************Get Label '%s' address %hu\n", tokArray[1], labelAddress);
         }
     }
 
@@ -563,26 +536,17 @@ unsigned short br(const unsigned short lineAddress)
     // lineAddress + 2 points to the next instruction
     // pcOffset9 specifies the number of instructions, forward
     // or backwards, to branch over
-    printf("labelAddress = %hu\n", labelAddress);
-    printf("lineAddress = %hu\n", lineAddress);
-    printf("lineAddress + 2 = %hu\n", lineAddress + 2);
-    printf("labelAddress - (lineAddress + 2) = %d\n", labelAddress - (lineAddress + 2));
-    printf("(labelAddress - (lineAddress + 2)) / 2 = %d\n", (signed)(labelAddress - (lineAddress + 2)) / 2);
     pcOffset9 = (signed)(labelAddress - (lineAddress + 2)) / 2;
 
-    printf("BR: pcOffset9 = %d\n", pcOffset9);
 
     if (pcOffset9 > 255 || pcOffset9 < -256)
     {
-        printf("pcOffset9 = %d\n", pcOffset9);
         printf("Error (BR): Invalid Label offset\n");
         exit(4);
     }
 
     pcOffset9 = pcOffset9 & 0x1FF;
 
-    printf("nzp = %d\n", nzp);
-    printf("pcOffset9 = %d\n", pcOffset9);
     return ((nzp << 9) | (pcOffset9));
 }
 
@@ -821,7 +785,6 @@ unsigned short ldw(void)
         DR = DR * 10 + (tokArray[1][i] - '0');
         ++i;
     }
-    printf("LDW: DR = %d\n", DR);
 
     // Get baseR
     i = 1;
@@ -830,7 +793,6 @@ unsigned short ldw(void)
         baseR = baseR * 10 + (tokArray[2][i] - '0');
         ++i;
     }
-    printf("LDW: baseR = %d\n", baseR);
 
     // Get Offset6
     i = 0;
@@ -847,7 +809,6 @@ unsigned short ldw(void)
     {
         offset6 = hex2i(&tokArray[3][i + 1]);
     }
-    printf("LDW: bOffset6 = %d\n", offset6);
 
     // Error checking
     if (offset6 > 31 || offset6 < -32)
@@ -1210,19 +1171,19 @@ unsigned short not_xor(void)
     {
         if (!tokArray[1] || !tokArray[2])
         {
-            printf("Error: missing operand\n");
+            printf("Error (NOT): missing operand\n");
             exit(4);
         }
 
         if (tokArray[3])
         {
-            printf("Error: too many operands\n");
+            printf("Error (NOT): too many operands\n");
             exit(4);
         }
 
         if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
         {
-            printf("Error: Invalid Operand\n");
+            printf("Error (NOT): Invalid Operand\n");
             exit(4);
         }
 
@@ -1250,19 +1211,19 @@ unsigned short not_xor(void)
     {
         if (!tokArray[1] || !tokArray[2] || !tokArray[3])
         {
-            printf("Error: missing operand\n");
+            printf("Error (XOR): missing operand\n");
             exit(4);
         }
 
         if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
         {
-            printf("Error: Invalid Operand\n");
+            printf("Error (XOR): Invalid Operand\n");
             exit(4);
         }
 
         if (tokArray[3][0] != 'r' && tokArray[3][0] != '#' && tokArray[3][0] != 'x')
         {
-            printf("Error: invalid operand\n");
+            printf("Error (XOR): invalid operand\n");
             exit(4);
         }
 
@@ -1320,7 +1281,7 @@ unsigned short not_xor(void)
 
             if (imm5 > 15 || imm5 < -16)
             {
-                printf("Error: Invalid constant\n");
+                printf("Error (XOR): Invalid constant\n");
                 exit(3);
             }
 
@@ -1411,7 +1372,6 @@ unsigned short fill(void)
     if (tokArray[1][i] == '#')
     {
         value = my_atoi(&(tokArray[1][i + 1]));
-        printf("FILL: value = %d\n", value);
     }
 
     i = 0;
@@ -1453,14 +1413,14 @@ int main(int argc, char* argv[])
     asmName = argv[1];
     objName = argv[2];
 
-    printf("program name is '%s'\n", progName);
-    printf("assembly file's name is '%s'\n", asmName);
-    printf("output file name is '%s'\n", objName);
+    printf("Program Name is '%s'\n", progName);
+    printf("Assembly File is '%s'\n", asmName);
+    printf("Output File is '%s'\n", objName);
 
     // Parameter Error Checking
     if (num < 3)
     {
-        printf("Usage: assemble <source.asm> <out.obj>\n");
+        printf("Usage: ./assemble <source.asm> <out.obj>\n");
         exit(4);
     }
 
@@ -1491,16 +1451,13 @@ int main(int argc, char* argv[])
         parse();
         // To calculate the label's address
         ++lineNum;
-        printf("lineNum = %d\n", lineNum);
 
         // Get whether the first token in a line from an asm file is a Label
         int tokVal = tokToValue(tokArray[0]);
-        printf("\n The first token in a line: tokVal = %d\n", tokVal);
 
         // To fill the symbol table, need the label's address, so must process the baseAddress
         if (tokVal == -2) // -2 means the token is .orig
         {
-            printf("\nMetting .ORIG\n");
             BaseAddress();
             lineNum = 1;
         }
@@ -1509,18 +1466,16 @@ int main(int argc, char* argv[])
         // 考虑一种情况：如果不是现有.orig声明一个baseAddress，而是先出现一个label，这个label我该如何处理？毕竟我现在不知道这个label的address，所以要杜绝这种情况
         if (!foundOrig)
         {
-            printf(".orig must be the first in the assmbly file\n");
+            printf(".orig must be the first in an assmbly file\n");
             exit(4);
         }
 
         // Process label to fill the symbol table
         if (tokVal == -1) // -1 means the token is a Label
         {
-            printf("*** There's a label!!!*** \n");
             // Label Error checking
             // Invalid label
             int tokLength = strlen(tokArray[0]);
-            printf("The label's length = %d\n", tokLength);
 
             if (!(tokLength >= 1 && tokLength <= 20))
             {
@@ -1579,16 +1534,9 @@ int main(int argc, char* argv[])
 
             // Fill the symbol table
             int address = baseAddress + (lineNum - 2) * 2;
-            printf("the label's address is %d\n", address);
             symbolTable[labelIndex].address = address;
-            printf("symbolTable[%d].address = %d\n", labelIndex, symbolTable[labelIndex].address);
-            printf("The label is '%s'\n", tokArray[0]);
-            printf("Begin strcpy!!!\n");
             strcpy(symbolTable[labelIndex].label, tokArray[0]);
-            printf("End strcpy!!!\n");
-            printf("symbolTable[%d].label = %s\n", labelIndex, symbolTable[labelIndex].label);
             ++labelIndex;
-            printf("labelIndex is now = %d\n", labelIndex);
 
             // If there's a .end after the label
             if (tokToValue(tokArray[1]) == -3)
@@ -1602,14 +1550,6 @@ int main(int argc, char* argv[])
             break;
         }
     }
-
-    // Print all the symbol table
-    printf("\n\n\n************Print symbolTalbe***************\n");
-    for (int i = 0; symbolTable[i].label[0]; ++i)
-    {
-        printf("symbolTable[%d].address = %d, symbolTable[%d].label = '%s'\n", i, symbolTable[i].address, i, symbolTable[i].label);
-    }
-    printf("\n\n\n");
 
     // Let the file pointer to the beginning of the file
     rewind(inFile);
@@ -1625,24 +1565,17 @@ int main(int argc, char* argv[])
         ++lineNum;
 
         unsigned short lineAddress = baseAddress + (lineNum - 2) * 2;
-        printf("lineAddress = %d, baseAddress = %d\n", lineAddress, baseAddress);
 
         int tokValue = tokToValue(tokArray[0]);
         if (tokValue == -1) // first token is a label
         {
-            printf("***************Second Pass Metting Label '%s'****************\n", tokArray[0]);
-            // Delete label
+            // Delete label from tokenArray
             for (int i = 1; i < 6; ++i)
             {
                 tokArray[i - 1] = tokArray[i];
             }
             tokArray[5] = '\0';
 
-            printf("After Deleted the Label\n");
-            for (int i = 0; i < 5; ++i)
-            {
-                printf("tokArray[%d] = '%s'\n", i, tokArray[i]);
-            }
             tokValue = tokToValue(tokArray[0]);
             if (tokValue == -1)
             {

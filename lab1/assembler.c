@@ -1444,9 +1444,9 @@ int main(int argc, char* argv[])
     int lineNum = 0;
 
     // First Pass
+    printf("\n\n***Begining First Pass!***\n\n");
     while(1)
     {
-        printf("\n\n***Begining First Pass!***\n\n");
         // Parse a line from an asm file
         parse();
         // To calculate the label's address
@@ -1555,9 +1555,9 @@ int main(int argc, char* argv[])
     rewind(inFile);
     lineNum = 0;
 
+    printf("***Begining Second Pass***\n\n");
     while(1)
     {
-        printf("***Begining Second Pass***\n\n");
         // Second pass
         // 1. Convert instruction into machine code
         // 2. write the machine code into the output file

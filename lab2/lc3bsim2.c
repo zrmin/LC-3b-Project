@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "lc3bsimdefines.h"
 
 /***************************************************************/
 /*                                                             */
@@ -35,7 +36,8 @@ void process_instruction();
 /* Use this to avoid overflowing 16 bits on the bus.           */
 /***************************************************************/
 #define Low16bits(x) ((x) & 0xFFFF)
-
+#define GetInstructionBit(x) ((instruction) >> (x))
+#define GetInstructionField(x,y) ((instruction) >> (y) & ((1) << (y - x + 1) - (1)))
 /***************************************************************/
 /* Main memory.                                                */
 /***************************************************************/
@@ -395,17 +397,269 @@ int main(int argc, char *argv[]) {
    Begin your code here 	  			       */
 
 /***************************************************************/
+int instruction;
+int DR, SR1, SR2, imm5;
 
+void add()
+{
+    DR = GetInstructionField(11,9);
+    SR1 = GetInstructionField(8.6);
 
+    int choose = GetInstructionBit(5);
+    if (choose)
+    {
+        imm5 = GetInstructinField(4,0);
+    }
+    else
+    {
+        SR2 = GetInstructionField(2,0);
+    }
+}
+
+void and()
+{
+    DR = GetInstructionField(11,9);
+    SR1 = GetInstructionField(8,6);
+
+    int choose = GetInstructionBit(5);
+    if (choose)
+    {
+        imm5 = GetInstructionField(4,0);
+    }
+    else
+    {
+        SR2 = GetInstructinField(2,0);
+    }
+}
+
+int n, z, p, PCoffset9;
+void br()
+{
+    n = GetInstructionBit(11);
+    z = GetInstructionBit(10);
+    p = GetInstructionBit(9);
+    PCoffset9 = GetInstructionField(8,0);
+}
+
+int BaseR;
+void jmp_ret()
+{
+    // If BaseR == 7, RET
+    // Else JMP
+    BaseR = GetInstructionField(8,6);
+}
+
+int PCoffset11;
+void jsr_r()
+{
+    if (GetInstructionBit(11))
+    {
+        PCoffset11 = GetInstructionField(10,0);
+    }
+    else
+    {
+        BaseR = GetInstructionField(8,6);
+    }
+}
+
+int boffset6;
+void ldb()
+{
+    DR = GetInstructionField(11,9);
+    BaseR = GetInstructionField(8,6);
+    boffset6 = GetInstructionField(5,0);
+}
+
+int offset6;
+void ldw()
+{
+    DR = GetInstructionField(11,9);
+    BaseR = GetInstructionField(8,6);
+    offset6 = GetInstructionField(5,0);
+}
+
+void lea()
+{
+    DR = GetInstructionField(11,9);
+    PCoffset9 = GetInstructionField(8,0);
+}
+
+void rti()
+{
+
+}
+
+int LSHF, RSHFL, RSHFA;
+void shf()
+{
+    DR = GetInstructionField(11,9);
+    SR = GetInstructionField(8,6);
+    amount4 = GetInstructionField(3,0);
+
+    int choose = GetInstructionField(5,4);
+    if (choose == 0)
+        LSHF = TRUE;
+    else if (choose == 1)
+        RSHFL = TRUE;
+    else
+        RSHFA = TRUE;
+}
+
+void stb()
+{
+    SR = GetInstructionField(11,9);
+    BaseR = GetInstructionField(8,6);
+    boffset6 = GetInstructionField(5,0);
+}
+
+void stw()
+{
+    SR = GetInstructionField(11,9);
+    BaseR = GetInstructionField(8,6);
+    offset6 = GetInstructionField(5,0);
+}
+
+int trapvect8;
+void trap()
+{
+    trapvect8 = GetInstructionField(7,0);
+}
+
+int SR;
+void xor()
+{
+    DR = GetInstructionField(11,9);
+    if (GetInstructionBit(5))
+    {
+        SR = GetInstructionField(8,6);
+        imm5 = GetInstructionField(4,0);
+    }
+    else
+    {
+        SR1 = GetInstructionField(8,6);
+        SR2 = GetInstructionField(2,0);
+    }
+}
+
+void decode(int opcode)
+{
+    switch (opcode)
+    {
+        case ADD:
+            add();
+            break;
+        case AND:
+            and();
+            break;
+        case BR:
+            br();
+            break;
+        case JMP_RET:
+            jmp_ret();
+            break;
+        case JSR_R:
+            jsr_r();
+            break;
+        case LDB:
+            ldb();
+            break;
+        case LDW:
+            ldw();
+            break;
+        case LEA:
+            lea();
+            break;
+        case RTI:
+            rti();
+            break;
+        case SHF:
+            shf();
+            break;
+        case STB:
+            stb();
+            break;
+        case STW:
+            stw();
+            break;
+        case TRAP:
+            trap();
+            break;
+        case XOR:
+            xor();
+            break;
+        default:
+            printf("Error: Unknown Opcode\n");
+            exit(2);
+    }
+}
+
+int TEMP;
+void execute(int opcode)
+{
+    switch (opcode)
+    {
+        case ADD:
+            add_exe();
+            break;
+        case AND:
+            and_exe();
+            break;
+        case BR:
+            br_exe();
+            break;
+        case JMP_RET:
+            jmp_ret_exe();
+            break;
+        case LDB:
+            ldb_exe();
+            break;
+        case LDW:
+            ldw_exe();
+            break;
+        case LEA:
+            lea_exe();
+            break;
+        case RTI:
+            rti_exe();
+            break;
+        case SHF:
+            shf_exe();
+            break;
+        case STB:
+            stb_exe();
+            break;
+        case STW:
+            stw_exe();
+            break;
+        case TRAP:
+            trap_exe();
+            break;
+        case XOR:
+            xor_exe();
+            break;
+        default:
+            printf("Error: Unknown Opcode!\n");
+            exit(2);
+    }
+}
 
 void process_instruction(){
   /*  function: process_instruction
-   *  
+   *
    *    Process one instruction at a time  
    *       -Fetch one instruction
    *       -Decode 
    *       -Execute
    *       -Update NEXT_LATCHES
-   */     
+   */
 
+    // Get one instruction form memory
+    instruction = MEMORY[CURRENT_LATCHES.PC >> 1][0];
+
+    // Decode this instruction
+    int opcode = instruction >> 12;
+    decode(opcode);
+
+    // Execute
+    execute(opcode);
 }

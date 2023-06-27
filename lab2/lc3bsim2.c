@@ -32,6 +32,11 @@ void process_instruction();
 #define FALSE 0
 #define TRUE  1
 
+typedef enum {
+    false = 0,
+    true = 1
+} bool;
+
 /***************************************************************/
 /* Use this to avoid overflowing 16 bits on the bus.           */
 /***************************************************************/
@@ -397,9 +402,12 @@ int main(int argc, char *argv[]) {
    Begin your code here 	  			       */
 
 /***************************************************************/
-int instruction;
-int DR, SR1, SR2, imm5;
 
+// DECODE
+int instruction;
+
+int DR, SR1, SR2, imm5;
+bool add_imm5;
 void add()
 {
     DR = GetInstructionField(11,9);
@@ -407,15 +415,18 @@ void add()
 
     int choose = GetInstructionBit(5);
     if (choose)
-    {
+    {i
+        add_imm5 = true;
         imm5 = GetInstructinField(4,0);
     }
     else
     {
+        add_imm5 = false;
         SR2 = GetInstructionField(2,0);
     }
 }
 
+bool and_imm5;
 void and()
 {
     DR = GetInstructionField(11,9);
@@ -424,10 +435,12 @@ void and()
     int choose = GetInstructionBit(5);
     if (choose)
     {
+        and_imm5 = true;
         imm5 = GetInstructionField(4,0);
     }
     else
     {
+        and_imm5 = false;
         SR2 = GetInstructinField(2,0);
     }
 }
@@ -593,7 +606,123 @@ void decode(int opcode)
     }
 }
 
-int TEMP;
+// EXE
+int TEMP_DR;
+int TEMP_PC;
+void add_exe()
+{
+    if (add_imm5)
+    {
+        TEMP_DR = SR1 + imm5;
+    }
+    else
+    {
+        TEMP_DR = SR1 + SR2;
+    }
+}
+
+void and_exe()
+{
+    if (and_imm5)
+    {
+        TEMP_DR = SR1 & imm5;
+    }
+    else
+    {
+        TEMP_DR = SR1 & SR2;
+    }
+}
+
+int signExtPCoffset9(const int PCoffset9)
+{
+    // Get sign bit
+    int signBit = (PCoffset9 >> 8) & 0x1;
+
+    // Sign Extension
+    if (signBit)
+    {
+        return ((PCoffset9 & 0xFF) | 0xFFFFFF00);
+    }
+
+    return PCoffset9;
+}
+
+void br_exe()
+{
+    if (n && N || z && Z || p && P)
+    {
+        TEMP_PC = CURRENT_LATCHES.PC + 4 + (signExtPCoffset9(PCoffset9) << 1);
+    }
+}
+
+void jmp_ret_exe()
+{
+    TEMP_PC = BaseR;
+}
+
+int signExtPCoffset11(const int PCoffset11)
+{
+    // Get sign bit
+    int signBit = (PCoffset11 >> 10) & 0x1;
+
+    // Sign Extension
+    if (signBit)
+    {
+        return ((PCoffset11 & 0x3FF) | 0xFFFFFC00);
+    }
+
+    return PCoffset11;
+}
+
+void jsr_r_exe()
+{
+    if (is_jsrr)
+    {
+        TEMP_PC = BaseR;
+    }
+    else
+    {
+        TEMP_PC = CURRENT_LATCHES.PC + 4 + (signExtPCoffset11(PCoffset11) << 1);
+    }
+}
+
+void ldb_exe()
+{
+
+}
+
+void ldw_exe()
+{
+}
+
+void lea_exe()
+{
+}
+
+void rti_exe()
+{
+}
+
+void shf_exe()
+{
+}
+
+void stb_exe()
+{
+}
+
+void stw_exe()
+{
+}
+
+void trap_exe()
+{
+}
+
+void xor_not_exe()
+{
+}
+
 void execute(int opcode)
 {
     switch (opcode)
@@ -609,6 +738,9 @@ void execute(int opcode)
             break;
         case JMP_RET:
             jmp_ret_exe();
+            break;
+        case JSR_R:
+            jsr_r_exe();
             break;
         case LDB:
             ldb_exe();
@@ -635,7 +767,7 @@ void execute(int opcode)
             trap_exe();
             break;
         case XOR:
-            xor_exe();
+            xor_not_exe();
             break;
         default:
             printf("Error: Unknown Opcode!\n");

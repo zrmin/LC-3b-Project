@@ -10,6 +10,8 @@ int signExt5(const int value)
     {
         return ((value & 0xF) | 0xFFFFFFF0);
     }
+
+    return value;
 }
 
 int signExt6(const int value)
@@ -22,6 +24,8 @@ int signExt6(const int value)
     {
         return ((value & 0x1F) | 0xFFFFFFE0);
     }
+
+    return value;
 }
 
 int signExt8(const int value)
@@ -34,6 +38,8 @@ int signExt8(const int value)
     {
         return ((value & 0x7F) | 0xFFFFFF80);
     }
+
+    return value;
 }
 
 int signExt9(const int value)

@@ -12,7 +12,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "lc3bsimdefines.h"
+#include "utils.h"
 
 /***************************************************************/
 /*                                                             */
@@ -32,17 +34,14 @@ void process_instruction();
 #define FALSE 0
 #define TRUE  1
 
-typedef enum {
-    false = 0,
-    true = 1
-} bool;
-
 /***************************************************************/
 /* Use this to avoid overflowing 16 bits on the bus.           */
 /***************************************************************/
 #define Low16bits(x) ((x) & 0xFFFF)
 #define GetInstructionBit(x) ((instruction) >> (x))
-#define GetInstructionField(x,y) ((instruction) >> (y) & ((1) << (y - x + 1) - (1)))
+#define GetInstructionField(x,y) ((instruction) >> (y) & (((1) << (x - y + 1)) - (1)))
+#define LSHF(x, y) ((x) << (y))
+
 /***************************************************************/
 /* Main memory.                                                */
 /***************************************************************/
@@ -50,7 +49,7 @@ typedef enum {
    MEMORY[A][1] stores the most significant byte of word at word address A 
 */
 
-#define WORDS_IN_MEM    0x08000 
+#define WORDS_IN_MEM    0x08000
 int MEMORY[WORDS_IN_MEM][2];
 
 /***************************************************************/
@@ -406,18 +405,18 @@ int main(int argc, char *argv[]) {
 // DECODE
 int instruction;
 
-int DR, SR1, SR2, imm5;
+int DR, SR, SR1, SR2, imm5, amount4;
 bool add_imm5;
 void add()
 {
     DR = GetInstructionField(11,9);
-    SR1 = GetInstructionField(8.6);
+    SR1 = GetInstructionField(8,6);
 
     int choose = GetInstructionBit(5);
     if (choose)
-    {i
+    {
         add_imm5 = true;
-        imm5 = GetInstructinField(4,0);
+        imm5 = GetInstructionField(4,0);
     }
     else
     {
@@ -441,7 +440,7 @@ void and()
     else
     {
         and_imm5 = false;
-        SR2 = GetInstructinField(2,0);
+        SR2 = GetInstructionField(2,0);
     }
 }
 
@@ -463,15 +462,18 @@ void jmp_ret()
 }
 
 int PCoffset11;
+bool is_jsrr;
 void jsr_r()
 {
     if (GetInstructionBit(11))
     {
         PCoffset11 = GetInstructionField(10,0);
+        is_jsrr = false;
     }
     else
     {
         BaseR = GetInstructionField(8,6);
+        is_jsrr = true;
     }
 }
 
@@ -502,7 +504,7 @@ void rti()
 
 }
 
-int LSHF, RSHFL, RSHFA;
+bool is_LSHF, is_RSHFL, is_RSHFA;
 void shf()
 {
     DR = GetInstructionField(11,9);
@@ -511,11 +513,23 @@ void shf()
 
     int choose = GetInstructionField(5,4);
     if (choose == 0)
-        LSHF = TRUE;
+    {
+        is_LSHF = true;
+        is_RSHFL = false;
+        is_RSHFA = false;
+    }
     else if (choose == 1)
-        RSHFL = TRUE;
+    {
+        is_RSHFL = true;
+        is_LSHF = false;
+        is_RSHFA = false;
+    }
     else
-        RSHFA = TRUE;
+    {
+        is_RSHFA = true;
+        is_LSHF = false;
+        is_RSHFL = false;
+    }
 }
 
 void stb()
@@ -525,6 +539,7 @@ void stb()
     boffset6 = GetInstructionField(5,0);
 }
 
+int SR;
 void stw()
 {
     SR = GetInstructionField(11,9);
@@ -538,19 +553,21 @@ void trap()
     trapvect8 = GetInstructionField(7,0);
 }
 
-int SR;
-void xor()
+bool is_xor_imm5;
+void xor_not()
 {
     DR = GetInstructionField(11,9);
     if (GetInstructionBit(5))
     {
         SR = GetInstructionField(8,6);
         imm5 = GetInstructionField(4,0);
+        is_xor_imm5 = true;
     }
     else
     {
         SR1 = GetInstructionField(8,6);
         SR2 = GetInstructionField(2,0);
+        is_xor_imm5 = false;
     }
 }
 
@@ -598,7 +615,7 @@ void decode(int opcode)
             trap();
             break;
         case XOR:
-            xor();
+            xor_not();
             break;
         default:
             printf("Error: Unknown Opcode\n");
@@ -609,118 +626,183 @@ void decode(int opcode)
 // EXE
 int TEMP_DR;
 int TEMP_PC;
+int TEMP_R7;
+int TEMP_N;
+int TEMP_Z;
+int TEMP_P;
+int TEMP_MEMORY[WORDS_IN_MEM][2];
+
+void setcc()
+{
+    if (TEMP_DR == 1)
+    {
+        CURRENT_LATCHES.N = 0;
+        CURRENT_LATCHES.Z = 0;
+        CURRENT_LATCHES.P = 1;
+    }
+    else if (TEMP_DR == 0)
+    {
+        CURRENT_LATCHES.N = 0;
+        CURRENT_LATCHES.Z = 1;
+        CURRENT_LATCHES.P = 0;
+    }
+    else
+    {
+        CURRENT_LATCHES.N = 1;
+        CURRENT_LATCHES.Z = 0;
+        CURRENT_LATCHES.P = 0;
+    }
+}
+
 void add_exe()
 {
     if (add_imm5)
     {
-        TEMP_DR = SR1 + imm5;
+        TEMP_DR = CURRENT_LATCHES.REGS[SR1] + imm5;
     }
     else
     {
-        TEMP_DR = SR1 + SR2;
+        TEMP_DR = CURRENT_LATCHES.REGS[SR1] + CURRENT_LATCHES.REGS[SR2];
     }
+
+    setcc(TEMP_DR, &CURRENT_LATCHES);
 }
 
 void and_exe()
 {
     if (and_imm5)
     {
-        TEMP_DR = SR1 & imm5;
+        TEMP_DR = CURRENT_LATCHES.REGS[SR1] & imm5;
     }
     else
     {
-        TEMP_DR = SR1 & SR2;
-    }
-}
-
-int signExtPCoffset9(const int PCoffset9)
-{
-    // Get sign bit
-    int signBit = (PCoffset9 >> 8) & 0x1;
-
-    // Sign Extension
-    if (signBit)
-    {
-        return ((PCoffset9 & 0xFF) | 0xFFFFFF00);
+        TEMP_DR = CURRENT_LATCHES.REGS[SR1] & CURRENT_LATCHES.REGS[SR2];
     }
 
-    return PCoffset9;
+    setcc(TEMP_DR, &CURRENT_LATCHES);
 }
 
 void br_exe()
 {
-    if (n && N || z && Z || p && P)
+    if (n && CURRENT_LATCHES.N || z && CURRENT_LATCHES.Z || p && CURRENT_LATCHES.P)
     {
-        TEMP_PC = CURRENT_LATCHES.PC + 4 + (signExtPCoffset9(PCoffset9) << 1);
+        TEMP_PC = CURRENT_LATCHES.PC + 4 + LSHF(signExt9(PCoffset9),1);
     }
 }
 
 void jmp_ret_exe()
 {
-    TEMP_PC = BaseR;
-}
-
-int signExtPCoffset11(const int PCoffset11)
-{
-    // Get sign bit
-    int signBit = (PCoffset11 >> 10) & 0x1;
-
-    // Sign Extension
-    if (signBit)
-    {
-        return ((PCoffset11 & 0x3FF) | 0xFFFFFC00);
-    }
-
-    return PCoffset11;
+    TEMP_PC = CURRENT_LATCHES.REGS[BaseR];
 }
 
 void jsr_r_exe()
 {
     if (is_jsrr)
     {
-        TEMP_PC = BaseR;
+        TEMP_PC = CURRENT_LATCHES.REGS[BaseR];
     }
     else
     {
-        TEMP_PC = CURRENT_LATCHES.PC + 4 + (signExtPCoffset11(PCoffset11) << 1);
+        TEMP_PC = CURRENT_LATCHES.PC + 4 + LSHF(signExt11(PCoffset11),1);
     }
 }
 
 void ldb_exe()
 {
+    int address = CURRENT_LATCHES.REGS[BaseR] + signExt6(boffset6);
+    int baseAddress = address >> 1;
+    int lastAddressBit = baseAddress & 0x1;
 
+    TEMP_DR = signExt8(MEMORY[baseAddress][lastAddressBit]);
+
+    setcc(TEMP_DR, &CURRENT_LATCHES);
 }
 
-void ldw_exe()
-{
+void ldw_exe() {
+    int address = CURRENT_LATCHES.REGS[BaseR] + LSHF(signExt6(offset6),1);
+    int baseAddress = address >> 1;
+
+    TEMP_DR = MEMORY[baseAddress][0];
+
+    setcc(TEMP_DR, &CURRENT_LATCHES);
 }
 
 void lea_exe()
 {
+    int newPC = CURRENT_LATCHES.PC + 4;
+    TEMP_DR = newPC + LSHF(signExt9(PCoffset9),1);
 }
 
 void rti_exe()
 {
+
 }
 
 void shf_exe()
 {
+    if (is_LSHF)
+    {
+        TEMP_DR = LSHF(SR, amount4);
+    }
+    else if (is_RSHFL)
+    {
+        TEMP_DR = (unsigned)CURRENT_LATCHES.REGS[SR] >> amount4;
+    }
+    else
+    {
+        // In C, left shif logical and right shift arithmetic
+        TEMP_DR = CURRENT_LATCHES.REGS[SR] >> amount4;
+    }
+
+    setcc(TEMP_DR, &CURRENT_LATCHES);
 }
 
 void stb_exe()
 {
+    int address = CURRENT_LATCHES.REGS[BaseR] + signExt6(boffset6);
+    int baseAddress = address >> 1;
+    int lsb = address & 0x1;
+
+    int data = CURRENT_LATCHES.REGS[SR] & 0xFF;
+    TEMP_MEMORY[baseAddress][lsb] = data;
 }
 
 void stw_exe()
 {
+    int address = CURRENT_LATCHES.REGS[BaseR] + LSHF(signExt6(offset6),1);
+    int baseAddress = address >> 1;
+
+    int data = CURRENT_LATCHES.REGS[SR];
+    int low8bit = data & 0xFF;
+    int high8bit = (data >> 8) & 0xFF;
+
+    TEMP_MEMORY[baseAddress][0] = low8bit;
+    TEMP_MEMORY[baseAddress][1] = high8bit;
 }
 
 void trap_exe()
 {
+    TEMP_R7 = CURRENT_LATCHES.PC + 4;
+    int baseAddress = LSHF(trapvect8,1);
+
+    int low8bit = MEMORY[baseAddress][0];
+    int high8bit = MEMORY[baseAddress][1];
+
+    TEMP_PC = high8bit << 8 + low8bit;
 }
 
 void xor_not_exe()
 {
+    if (is_xor_imm5)
+    {
+        TEMP_DR = CURRENT_LATCHES.REGS[SR1] ^ signExt5(imm5);
+    }
+    else
+    {
+        TEMP_DR = CURRENT_LATCHES.REGS[SR1] ^ CURRENT_LATCHES.REGS[SR2];
+    }
+
+    setcc(TEMP_DR, &CURRENT_LATCHES);
 }
 
 void execute(int opcode)
@@ -775,6 +857,17 @@ void execute(int opcode)
     }
 }
 
+// Write Back
+void write_back(int opcode)
+{
+    NEXT_LATCHES.PC = TEMP_PC;
+    NEXT_LATCHES.N = TEMP_N;
+    NEXT_LATCHES.Z = TEMP_Z;
+    NEXT_LATCHES.P = TEMP_P;
+    // Regs
+    NEXT_LATCHES.REGS[DR] = TEMP_DR;
+}
+
 void process_instruction(){
   /*  function: process_instruction
    *
@@ -794,4 +887,8 @@ void process_instruction(){
 
     // Execute
     execute(opcode);
+
+    // Write Back (update)
+    write_back(opcode);
 }
+

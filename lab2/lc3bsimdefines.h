@@ -16,4 +16,9 @@
 #define TRAP 15
 #define XOR 9
 
+typedef enum {
+    false = 0,
+    true = 1
+} bool;
+
 #endif

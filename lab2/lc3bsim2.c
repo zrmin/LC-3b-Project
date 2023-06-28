@@ -473,6 +473,7 @@ void br()
     // Print information for testing
     printf("    n = %d,\n   z = %d,\n    p = %d\n", n, z, p);
     printf("    PCoffset9 = %d\n", PCoffset9);
+    printf("    PCoffset9 = %x\n", PCoffset9);
 }
 
 int BaseR;

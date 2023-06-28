@@ -873,6 +873,10 @@ void write_back(int opcode)
     NEXT_LATCHES.P = TEMP_P;
     // Regs
     NEXT_LATCHES.REGS[DR] = TEMP_DR;
+
+    // Print information for test
+    printf("PC = %x\n, N = %d\n, Z = %d\n, P = %d\n", NEXT_LATCHES.PC, NEXT_LATCHES.N, NEXT_LATCHES.Z, NEXT_LATCHES.P);
+    printf("Reg[%d] = %d\n", DR, NEXT_LATCHES.REGS[DR]);
 }
 
 void process_instruction(){

@@ -9,4 +9,4 @@ run:
 	./simulate output.obj
 
 clear:
-	rm -rf simulate
+	rm -rf simulate core dumpsim

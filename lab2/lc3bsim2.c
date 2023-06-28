@@ -412,6 +412,7 @@ int DR, SR, SR1, SR2, imm5, amount4;
 bool add_imm5;
 void add()
 {
+    printf("ADD:\n");
     DR = GetInstructionField(11,9);
     SR1 = GetInstructionField(8,6);
 
@@ -425,6 +426,18 @@ void add()
     {
         add_imm5 = false;
         SR2 = GetInstructionField(2,0);
+    }
+
+    printf("    DR = %d\n", DR);
+    printf("    SR1 = %d\n", SR1);
+
+    if (choose)
+    {
+        printf("    imm5 = %d\n", imm5);
+    }
+    else
+    {
+        printf("    SR2 = %d\n", SR2);
     }
 }
 
@@ -664,16 +677,24 @@ void setcc()
 
 void add_exe()
 {
+    printf("ADD: Executing\n");
+
     if (add_imm5)
     {
-        TEMP_DR = CURRENT_LATCHES.REGS[SR1] + imm5;
+        TEMP_DR = CURRENT_LATCHES.REGS[SR1] + signExt5(imm5);
     }
     else
     {
         TEMP_DR = CURRENT_LATCHES.REGS[SR1] + CURRENT_LATCHES.REGS[SR2];
     }
 
+    TEMP_PC = CURRENT_LATCHES.PC + 2;
+
     setcc();
+
+    // Print information for test
+    printf("    TEMP_DR = %d\n", TEMP_DR);
+    printf("    N = %d\n, Z = %d\n, P = %d\n", TEMP_N, TEMP_Z, TEMP_P);
 }
 
 void and_exe()

@@ -38,7 +38,7 @@ void process_instruction();
 /* Use this to avoid overflowing 16 bits on the bus.           */
 /***************************************************************/
 #define Low16bits(x) ((x) & 0xFFFF)
-#define GetInstructionBit(x) ((instruction) >> (x))
+#define GetInstructionBit(x) (((instruction) >> (x)) & 0x1)
 #define GetInstructionField(x,y) ((instruction) >> (y) & (((1) << (x - y + 1)) - (1)))
 #define LSHF(x, y) ((x) << (y))
 
@@ -186,7 +186,7 @@ void mdump(FILE * dumpsim_file, int start, int stop) {
 }
 
 /***************************************************************/
-/*                                                             */
+/*                                                             //
 /* Procedure : rdump                                           */
 /*                                                             */
 /* Purpose   : Dump current register and bus values to the     */   
@@ -463,10 +463,16 @@ void and()
 int n, z, p, PCoffset9;
 void br()
 {
+    printf("BR:\n");
+
     n = GetInstructionBit(11);
     z = GetInstructionBit(10);
     p = GetInstructionBit(9);
     PCoffset9 = GetInstructionField(8,0);
+
+    // Print information for testing
+    printf("    n = %d,\n   z = %d,\n    p = %d\n", n, z, p);
+    printf("    PCoffset9 = %d\n", PCoffset9);
 }
 
 int BaseR;
@@ -694,7 +700,7 @@ void add_exe()
 
     // Print information for test
     printf("    TEMP_DR = %d\n", TEMP_DR);
-    printf("    N = %d\n, Z = %d\n, P = %d\n", TEMP_N, TEMP_Z, TEMP_P);
+    printf("    N = %d,\n  Z = %d,\n   P = %d\n", TEMP_N, TEMP_Z, TEMP_P);
 }
 
 void and_exe()
@@ -713,10 +719,18 @@ void and_exe()
 
 void br_exe()
 {
+    printf("BR: Executing\n");
+
     if (n && CURRENT_LATCHES.N || z && CURRENT_LATCHES.Z || p && CURRENT_LATCHES.P)
     {
-        TEMP_PC = CURRENT_LATCHES.PC + 4 + LSHF(signExt9(PCoffset9),1);
+        TEMP_PC = CURRENT_LATCHES.PC + 2 + LSHF(signExt9(PCoffset9),1);
     }
+    else
+    {
+        TEMP_PC = CURRENT_LATCHES.PC + 2;
+    }
+
+    printf("    TEMP_PC = %x\n", TEMP_PC);
 }
 
 void jmp_ret_exe()

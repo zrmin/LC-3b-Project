@@ -473,7 +473,7 @@ void br()
     // Print information for testing
     printf("    n = %d,\n   z = %d,\n    p = %d\n", n, z, p);
     printf("    PCoffset9 = %d\n", PCoffset9);
-    printf("    PCoffset9 = %x\n", PCoffset9);
+    printf("    PCoffset9 = 0x%x\n", PCoffset9);
 }
 
 int BaseR;
@@ -578,7 +578,12 @@ void stw()
 int trapvect8;
 void trap()
 {
+    printf("TRAP:\n");
+
     trapvect8 = GetInstructionField(7,0);
+
+    // Print information for testing
+    printf("    trapvect8 = 0x%x\n", trapvect8);
 }
 
 bool is_xor_imm5;
@@ -836,13 +841,22 @@ void stw_exe()
 
 void trap_exe()
 {
-    TEMP_R7 = CURRENT_LATCHES.PC + 4;
+    printf("TRAP: Executing\n");
+
+    TEMP_R7 = CURRENT_LATCHES.PC + 2;
     int baseAddress = LSHF(trapvect8,1);
 
     int low8bit = MEMORY[baseAddress][0];
     int high8bit = MEMORY[baseAddress][1];
 
     TEMP_PC = high8bit << 8 + low8bit;
+
+    // print information
+    printf("    TEMP_R7 = 0x%x\n", TEMP_R7);
+    printf("    baseAddress = %x\n", baseAddress);
+    printf("    low8bit = %x\n", low8bit);
+    printf("    high8bit = %x\n", high8bit);
+    printf("    TEMP_PC = %x\n", TEMP_PC);
 }
 
 void xor_not_exe()
@@ -941,7 +955,7 @@ void process_instruction(){
     instructionLow8bit = MEMORY[CURRENT_LATCHES.PC >> 1][0];
     instructionHigh8bit = MEMORY[CURRENT_LATCHES.PC >> 1][1];
     instruction = instructionLow8bit | (instructionHigh8bit << 8);
-    printf("Fetch instruction : %.4x\n", instruction);
+    printf("Fetch instruction : 0x%.4x\n", instruction);
 
     // Decode this instruction
     printf("\nBegining Decode\n");

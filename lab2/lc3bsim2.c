@@ -278,7 +278,7 @@ void get_command(FILE * dumpsim_file) {
 /* Purpose   : Zero out the memory array                       */
 /*                                                             */
 /***************************************************************/
-void init_memory() {                                           
+void init_memory() {
   int i;
 
   for (i=0; i < WORDS_IN_MEM; i++) {
@@ -317,9 +317,9 @@ void load_program(char *program_filename) {
   while (fscanf(prog, "%x\n", &word) != EOF) {
     /* Make sure it fits. */
     if (program_base + ii >= WORDS_IN_MEM) {
-	    printf("Error: Program file %s is too long to fit in memory. %x\n",
-             program_filename, ii);
-	    exit(-1);
+        printf("Error: Program file %s is too long to fit in memory. %x\n",
+        program_filename, ii);
+        exit(-1);
     }
 
     /* Write the word to memory array. */
@@ -345,13 +345,14 @@ void initialize(char *program_filename, int num_prog_files) {
   int i;
 
   init_memory();
+
   for ( i = 0; i < num_prog_files; i++ ) {
     load_program(program_filename);
     while(*program_filename++ != '\0');
   }
-  CURRENT_LATCHES.Z = 1;  
+  CURRENT_LATCHES.Z = 1;
   NEXT_LATCHES = CURRENT_LATCHES;
-    
+
   RUN_BIT = TRUE;
 }
 
@@ -360,7 +361,7 @@ void initialize(char *program_filename, int num_prog_files) {
 /* Procedure : main                                            */
 /*                                                             */
 /***************************************************************/
-int main(int argc, char *argv[]) {                              
+int main(int argc, char *argv[]) {
   FILE * dumpsim_file;
 
   /* Error Checking */
@@ -381,7 +382,7 @@ int main(int argc, char *argv[]) {
 
   while (1)
     get_command(dumpsim_file);
-    
+
 }
 
 /***************************************************************/
@@ -404,6 +405,8 @@ int main(int argc, char *argv[]) {
 
 // DECODE
 int instruction;
+int instructionLow8bit;
+int instructionHigh8bit;
 
 int DR, SR, SR1, SR2, imm5, amount4;
 bool add_imm5;
@@ -496,6 +499,7 @@ void ldw()
 void lea()
 {
     DR = GetInstructionField(11,9);
+    printf("LEA: DR = %d\n", DR);
     PCoffset9 = GetInstructionField(8,0);
 }
 
@@ -729,8 +733,11 @@ void ldw_exe() {
 
 void lea_exe()
 {
-    int newPC = CURRENT_LATCHES.PC + 4;
-    TEMP_DR = newPC + LSHF(signExt9(PCoffset9),1);
+    printf("\nLEA: Executing\n");
+    TEMP_PC = CURRENT_LATCHES.PC + 2;
+    printf("New PC = %x\n", TEMP_PC);
+    TEMP_DR = TEMP_PC + LSHF(signExt9(PCoffset9),1);
+    printf("Result = %x\n", TEMP_DR);
 }
 
 void rti_exe()
@@ -879,16 +886,26 @@ void process_instruction(){
    */
 
     // Get one instruction form memory
-    instruction = MEMORY[CURRENT_LATCHES.PC >> 1][0];
+    printf("Begining Fetch\n");
+    instructionLow8bit = MEMORY[CURRENT_LATCHES.PC >> 1][0];
+    instructionHigh8bit = MEMORY[CURRENT_LATCHES.PC >> 1][1];
+    instruction = instructionLow8bit | (instructionHigh8bit << 8);
+    printf("Fetch instruction : %.4x\n", instruction);
 
     // Decode this instruction
+    printf("\nBegining Decode\n");
     int opcode = instruction >> 12;
     decode(opcode);
+    printf("Ending Decode\n");
 
     // Execute
+    printf("\nBegining Execution\n");
     execute(opcode);
+    printf("Ending Execution\n");
 
     // Write Back (update)
+    printf("\nBegining Write Back\n");
     write_back(opcode);
+    printf("Ending Write Back\n");
 }
 

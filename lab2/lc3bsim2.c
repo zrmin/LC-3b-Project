@@ -491,9 +491,13 @@ void ldb()
 int offset6;
 void ldw()
 {
+    printf("LDW:\n");
     DR = GetInstructionField(11,9);
+    printf("    DR = %d\n", DR);
     BaseR = GetInstructionField(8,6);
+    printf("    BaseR = %d\n", BaseR);
     offset6 = GetInstructionField(5,0);
+    printf("    offset6 = %d\n", offset6);
 }
 
 void lea()
@@ -638,23 +642,23 @@ int TEMP_MEMORY[WORDS_IN_MEM][2];
 
 void setcc()
 {
-    if (TEMP_DR == 1)
+    if (TEMP_DR > 0)
     {
-        CURRENT_LATCHES.N = 0;
-        CURRENT_LATCHES.Z = 0;
-        CURRENT_LATCHES.P = 1;
+        TEMP_N = 0;
+        TEMP_Z = 0;
+        TEMP_P = 1;
     }
     else if (TEMP_DR == 0)
     {
-        CURRENT_LATCHES.N = 0;
-        CURRENT_LATCHES.Z = 1;
-        CURRENT_LATCHES.P = 0;
+        TEMP_N = 0;
+        TEMP_Z = 1;
+        TEMP_P = 0;
     }
     else
     {
-        CURRENT_LATCHES.N = 1;
-        CURRENT_LATCHES.Z = 0;
-        CURRENT_LATCHES.P = 0;
+        TEMP_N = 1;
+        TEMP_Z = 0;
+        TEMP_P = 0;
     }
 }
 
@@ -669,7 +673,7 @@ void add_exe()
         TEMP_DR = CURRENT_LATCHES.REGS[SR1] + CURRENT_LATCHES.REGS[SR2];
     }
 
-    setcc(TEMP_DR, &CURRENT_LATCHES);
+    setcc();
 }
 
 void and_exe()
@@ -723,12 +727,19 @@ void ldb_exe()
 }
 
 void ldw_exe() {
+    printf("LDW: Executing\n");
     int address = CURRENT_LATCHES.REGS[BaseR] + LSHF(signExt6(offset6),1);
     int baseAddress = address >> 1;
 
     TEMP_DR = MEMORY[baseAddress][0];
+    TEMP_PC = CURRENT_LATCHES.PC + 2;
 
     setcc(TEMP_DR, &CURRENT_LATCHES);
+
+
+    // Print information for test
+    printf("    TEMP_DR = %x\n", TEMP_DR);
+    printf("    N = %d\n, Z= %d\n, P = %d\n", TEMP_N, TEMP_Z, TEMP_P);
 }
 
 void lea_exe()
@@ -876,7 +887,7 @@ void write_back(int opcode)
 
     // Print information for test
     printf("PC = %x\n, N = %d\n, Z = %d\n, P = %d\n", NEXT_LATCHES.PC, NEXT_LATCHES.N, NEXT_LATCHES.Z, NEXT_LATCHES.P);
-    printf("Reg[%d] = %d\n", DR, NEXT_LATCHES.REGS[DR]);
+    printf("Reg[%d] = %x\n", DR, NEXT_LATCHES.REGS[DR]);
 }
 
 void process_instruction(){
@@ -890,7 +901,7 @@ void process_instruction(){
    */
 
     // Get one instruction form memory
-    printf("Begining Fetch\n");
+    printf("\n\n****** Begining Fetch******\n\n");
     instructionLow8bit = MEMORY[CURRENT_LATCHES.PC >> 1][0];
     instructionHigh8bit = MEMORY[CURRENT_LATCHES.PC >> 1][1];
     instruction = instructionLow8bit | (instructionHigh8bit << 8);

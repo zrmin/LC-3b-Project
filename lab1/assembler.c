@@ -1159,20 +1159,10 @@ unsigned short not_xor(void)
         }
 
         // Get DR
-        int i = 1;
-        while(tokArray[1][i])
-        {
-            DR = DR * 10 + (tokArray[1][i] - '0');
-            ++i;
-        }
+        DR = regnum(&tokArray[1][1]);
 
         // Get SR
-        i = 1;
-        while(tokArray[2][i])
-        {
-            SR = SR * 10 + (tokArray[2][i] - '0');
-            ++i;
-        }
+        SR = regnum(&tokArray[2][1]);
 
         return ((9 << 12) | (DR << 9) | (SR << 6) | (63));
     }
@@ -1199,45 +1189,30 @@ unsigned short not_xor(void)
         }
 
         // Get DR
-        int i = 1;
-        while(tokArray[1][i])
-        {
-            DR = DR * 10 + (tokArray[1][i] - '0');
-            ++i;
-        }
+        DR = regnum(&tokArray[1][1]);
 
         // Get SR1
-        i = 1;
-        while (tokArray[2][i])
-        {
-            SR1 = SR1 * 10 + (tokArray[2][i] - '0');
-            ++i;
-        }
+        SR1 = regnum(&tokArray[2][1]);
 
         // Get Operand2
         // 1. SR2
         if (tokArray[3][0] == 'r')
         {
-            i = 1;
-            while (tokArray[3][i])
-            {
-                SR2 = SR2 * 10 + (tokArray[3][i] - '0');
-                ++i;
-            }
+            SR2 = regnum(&tokArray[3][1]);
 
             return ((9 << 12) | (DR << 9) | (SR1 << 6) | (SR2));
         }
         // 2. imm5
         else
         {
-            if (tokArray[3][i] == '#')
+            if (tokArray[3][0] == '#')
             {
-                imm5 = my_atoi(&tokArray[3][i + 1]);
+                imm5 = my_atoi(&tokArray[3][1]);
             }
 
-            if (tokArray[3][i] == 'x')
+            if (tokArray[3][0] == 'x')
             {
-                imm5 = hex2i(&tokArray[3][i + 1]);
+                imm5 = hex2i(&tokArray[3][1]);
             }
 
             if (imm5 > 15 || imm5 < -16)

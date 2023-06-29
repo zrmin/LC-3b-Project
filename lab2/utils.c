@@ -71,6 +71,69 @@ int signExt11(const int value)
     return value;
 }
 
+int hex2i(const char *str)
+{
+    int num = 0;
+    int i = 0;
+    while (*(str + i))
+    {
+        if (*(str + i) >= '0' && *(str + i) <= '9')
+        {
+            num = num * 16 + (*(str + i) - '0');
+            ++i;
+        }
+
+        if (*(str + i) >= 'a' && *(str + i) <= 'f')
+        {
+            num = num * 16 + (*(str + i) - 'a') + 10;
+            ++i;
+        }
+    }
+
+    return num;
+}
+
+int my_atoi(const char* str)
+{
+    int num = 0;
+    int i = 0;
+
+    while (*(str + i))
+    {
+        if (*(str + i) >= '0' && *(str + i) <= '9')
+        {
+            num = num * 10 + (*(str + i) - '0');
+            ++i;
+        }
+    }
+
+    return num;
+}
+
+int RSHFA(int num, const int amount4)
+{
+    int i = 0;
+    int mask = 0x8000;
+    int signBit = (num >> 15) & 0x1;
+
+    if (signBit)
+    {
+        // Right shift logical
+        num = num >> amount4;
+        for (i = 0; i < amount4; ++i)
+        {
+            num = num | mask;
+            mask = mask >> 1;
+        }
+    }
+    else
+    {
+        num = num >> amount4;
+    }
+
+    return num;
+}
+
 /*
 void setcc(const int TEMP_DR, struct System_Latches* CURRENT_LATCHES)
 {

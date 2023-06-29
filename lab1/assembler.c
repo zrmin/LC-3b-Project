@@ -92,7 +92,6 @@ int hex2i(const char* str)
 void parse(void)
 {
     fgets(line, MAX_LENGTH, inFile);
-
     // Convert to lowercase
     int i = 0;
     while(line[i])
@@ -112,6 +111,7 @@ void parse(void)
 
     // Parse the line into tokens
     tokArray[0] = strtok(line, "\n\t\r ,");
+
     i = 1;
     while ((tokArray[i-1] != NULL) && (i < 6))
     {
@@ -400,7 +400,7 @@ unsigned short and(void)
 
     if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
     {
-        printf("Error (AND): invalid operand\n");
+        printf("Error (AND): Invalid Register Operand\n");
         exit(4);
     }
 
@@ -440,17 +440,11 @@ unsigned short and(void)
     }
     else // Imm5
     {
-        i = 0;
-        while(tokArray[3][i] != 'x' && tokArray[3][i] != '#')
-            ++i;
-
         if (tokArray[3][i] == '#')
         {
-            while(tokArray[3][i + 1])
-            {
-                imm5 = imm5 * 10 + (tokArray[3][i + 1] - '0');
-                ++i;
-            }
+            printf("here, atoi\n");
+            imm5 = my_atoi(&tokArray[3][i + 1]);
+            printf("imm5 = %d\n", imm5);
         }
 
         if (tokArray[3][i] == 'x')
@@ -460,7 +454,7 @@ unsigned short and(void)
 
         if (imm5 > 15 || imm5 < -16)
         {
-            printf("Error (AND): invalid constant\n");
+            printf("Error (AND): invalid constant %d\n", imm5);
             exit(3);
         }
 
@@ -912,7 +906,7 @@ unsigned short shf(void)
 
     // Get DR
     int i = 1;
-    while (tokArray[1][1])
+    while (tokArray[1][i])
     {
         DR = DR * 10 + (tokArray[1][1] - '0');
         ++i;
@@ -920,7 +914,7 @@ unsigned short shf(void)
 
     // Get SR
     i = 1;
-    while (tokArray[2][1])
+    while (tokArray[2][i])
     {
         SR = SR * 10 + (tokArray[2][1] - '0');
         ++i;
@@ -955,7 +949,6 @@ unsigned short shf(void)
     }
 
     amount4 = amount4 & 0x0F;
-
     if (!strcmp(tokArray[0], "lshf"))
     {
         return ((13 << 12) | (DR << 9) | (SR << 6) | (amount4));
@@ -1171,19 +1164,19 @@ unsigned short not_xor(void)
     {
         if (!tokArray[1] || !tokArray[2])
         {
-            printf("Error (NOT): missing operand\n");
+            printf("Error (NOT): Missing Operand\n");
             exit(4);
         }
 
         if (tokArray[3])
         {
-            printf("Error (NOT): too many operands\n");
+            printf("Error (NOT): Too Many Operands\n");
             exit(4);
         }
 
         if (tokArray[1][0] != 'r' || tokArray[2][0] != 'r')
         {
-            printf("Error (NOT): Invalid Operand\n");
+            printf("Error (NOT): Invalid Register Operand\n");
             exit(4);
         }
 
@@ -1259,19 +1252,9 @@ unsigned short not_xor(void)
         // 2. imm5
         else
         {
-            i = 0;
-            while (tokArray[3][i] != '#' && tokArray[3][i] != 'x')
-            {
-                ++i;
-            }
-
             if (tokArray[3][i] == '#')
             {
-                while(tokArray[3][i + 1])
-                {
-                    imm5 = imm5 * 10 + (tokArray[3][i + 1] - '0');
-                    ++i;
-                }
+                imm5 = my_atoi(&tokArray[3][i + 1]);
             }
 
             if (tokArray[3][i] == 'x')
@@ -1409,6 +1392,7 @@ int main(int argc, char* argv[])
     char* objName = NULL;
 
     num = argc;
+    printf("num = %d\n", num);
     progName = argv[0];
     asmName = argv[1];
     objName = argv[2];
@@ -1416,14 +1400,14 @@ int main(int argc, char* argv[])
     printf("Program Name is '%s'\n", progName);
     printf("Assembly File is '%s'\n", asmName);
     printf("Output File is '%s'\n", objName);
-
+/*
     // Parameter Error Checking
     if (num < 3)
     {
         printf("Usage: ./assemble <source.asm> <out.obj>\n");
         exit(4);
     }
-
+*/
     // FILE I/O
     inFile = fopen(asmName, "r");
     oFile = fopen(objName, "w");
@@ -1567,6 +1551,7 @@ int main(int argc, char* argv[])
         unsigned short lineAddress = baseAddress + (lineNum - 2) * 2;
 
         int tokValue = tokToValue(tokArray[0]);
+
         if (tokValue == -1) // first token is a label
         {
             // Delete label from tokenArray

@@ -24,6 +24,20 @@ FILE* inFile = NULL;
 FILE* oFile = NULL;
 char line[MAX_LENGTH + 1];
 
+// Convert register number string to decimal number
+unsigned int regnum(char *reg)
+{
+    int num = 0;
+    int i = 0;
+    while (*(reg + i))
+    {
+        num = num * 10 + (*(reg + i) - '0');
+        ++i;
+    }
+
+    return num;
+}
+
 // Convert uppercase character to lowercase character
 void my_tolower(char* c)
 {
@@ -48,7 +62,13 @@ int my_atoi(const char* str)
     int num = 0;
     while (*(str + i))
     {
-        num = num * 10 + (*(str + i) - '0');
+        if (*(str + i) >= '0' && *(str + i) <= '9')
+            num = num * 10 + (*(str + i) - '0');
+        else
+        {
+            printf("Error: Constant is not decimal\n");
+            exit(3);
+        }
         ++i;
     }
 
@@ -75,11 +95,15 @@ int hex2i(const char* str)
             num = num * 16 + (*(str + i) - '0');
             ++i;
         }
-
-        if (*(str + i) >= 'a' && *(str + i) <= 'f')
+        else if (*(str + i) >= 'a' && *(str + i) <= 'f')
         {
             num = num * 16 + (*(str + i) - 'a') + 10;
             ++i;
+        }
+        else
+        {
+            printf("Error: Constant is not hexadecimal\n");
+            exit(3);
         }
     }
 
@@ -313,6 +337,7 @@ unsigned short convert(const int tokValue, const short lineAddress)
 
 unsigned short add(void)
 {
+    printf("add\n");
     int DR = 0, SR1 = 0, SR2 = 0, imm5 = 0;
 
     // Operand error checking
@@ -335,35 +360,23 @@ unsigned short add(void)
     }
 
     // Get DR
-    int i = 1;
-    while(tokArray[1][i])
-    {
-        DR = DR * 10 + (tokArray[1][i] - '0');
-        ++i;
-    }
+    DR = regnum(&tokArray[1][1]);
+    printf("DR = %d\n", DR);
 
     // Get SR1
-    i = 1;
-    while(tokArray[2][i])
-    {
-        SR1 = SR1 * 10 + (tokArray[2][i] - '0');
-        ++i;
-    }
+    SR1 = regnum(&tokArray[2][1]);
+    printf("SR1 = %d\n", SR1);
 
     // Get Operand2: register or imm
     if (tokArray[3][0] == 'r') // Operand2 is SR2
     {
-        i = 1;
-        while (tokArray[3][i])
-        {
-            SR2 = SR2 * 10 + (tokArray[3][i] - '0');
-            ++i;
-        }
+        SR2 = regnum(&tokArray[3][1]);
+        printf("SR2 = %d\n", SR2);
         return ((1 << 12) | (DR << 9) | (SR1 << 6) | (SR2));
     }
     else // Operand2 is imm5
     {
-        i = 0;
+        int i = 0;
         if (tokArray[3][i] == '#')
         {
             imm5 = my_atoi(&tokArray[3][i + 1]);
@@ -382,12 +395,14 @@ unsigned short add(void)
         }
 
         imm5 = imm5 & 0x1F;
+        printf("imm5 = %d\n", imm5);
         return ((1 << 12) | (DR << 9) | (SR1 << 6) | (1 << 5) | (imm5));
     }
 }
 
 unsigned short and(void)
 {
+    printf("and\n");
     int DR = 0, SR1 = 0, SR2 = 0, imm5 = 0;
 
     // Operands error checking
@@ -411,54 +426,41 @@ unsigned short and(void)
     }
 
     // Get DR
-    int i = 1;
-    while(tokArray[1][i])
-    {
-        DR = DR * 10 + (tokArray[1][i] - '0');
-        ++i;
-    }
+    DR = regnum(&tokArray[1][1]);
+    printf("DR = %d\n", DR);
 
     // Get SR1
-    i = 1;
-    while(tokArray[2][i])
-    {
-        SR1 = SR1 * 10 + (tokArray[2][i] - '0');
-        ++i;
-    }
+    SR1 = regnum(&tokArray[2][1]);
+    printf("SR1 = %d\n", SR1);
 
     // Get Operand2: SR2 or imm5
     if (tokArray[3][0] == 'r') // SR2
     {
-        i = 1;
-        while(tokArray[3][i])
-        {
-            SR2 = SR2 * 10 + (tokArray[3][i] - '0');
-            ++i;
-        }
+        SR2 = regnum(&tokArray[3][1]);
+        printf("SR2 = %d\n", SR2);
 
         return ((5 << 12) | (DR << 9) | (SR1 << 6) | (SR2));
     }
     else // Imm5
     {
-        if (tokArray[3][i] == '#')
+        if (tokArray[3][0] == '#')
         {
-            printf("here, atoi\n");
-            imm5 = my_atoi(&tokArray[3][i + 1]);
-            printf("imm5 = %d\n", imm5);
+            imm5 = my_atoi(&tokArray[3][1]);
         }
 
-        if (tokArray[3][i] == 'x')
+        if (tokArray[3][0] == 'x')
         {
-            imm5 = hex2i(&tokArray[3][i + 1]);
+            imm5 = hex2i(&tokArray[3][1]);
         }
 
         if (imm5 > 15 || imm5 < -16)
         {
-            printf("Error (AND): invalid constant %d\n", imm5);
+            printf("Error (AND): Invalid Constant %d\n", imm5);
             exit(3);
         }
 
         imm5 = imm5 & 0x1F;
+        printf("imm5 = %d\n", imm5);
 
         return ((5 << 12) | (DR << 9) | (SR1 << 6) | (1 << 5) | (imm5));
     }
@@ -466,6 +468,7 @@ unsigned short and(void)
 
 unsigned short br(const unsigned short lineAddress)
 {
+    printf("br\n");
     int nzp = 0;
     unsigned int labelAddress = 0;
     int pcOffset9 = 0;
@@ -518,6 +521,7 @@ unsigned short br(const unsigned short lineAddress)
         if (!strcmp(tokArray[1], symbolTable[i].label))
         {
             labelAddress = symbolTable[i].address;
+            printf("label = %s, labelAdddress = %x\n", tokArray[1], labelAddress);
         }
     }
 
@@ -532,7 +536,6 @@ unsigned short br(const unsigned short lineAddress)
     // or backwards, to branch over
     pcOffset9 = (signed)(labelAddress - (lineAddress + 2)) / 2;
 
-
     if (pcOffset9 > 255 || pcOffset9 < -256)
     {
         printf("Error (BR): Invalid Label offset\n");
@@ -540,7 +543,7 @@ unsigned short br(const unsigned short lineAddress)
     }
 
     pcOffset9 = pcOffset9 & 0x1FF;
-
+    printf("pcoffset9 = %x\n", pcOffset9);
     return ((nzp << 9) | (pcOffset9));
 }
 
@@ -967,6 +970,7 @@ unsigned short shf(void)
 
 unsigned short stb(void)
 {
+    printf("stb\n");
     int SR = 0;
     int BaseR = 0;
     int boffset6 = 0;
@@ -990,35 +994,19 @@ unsigned short stb(void)
     }
 
     // Get SR
-    int i = 1;
-    while (tokArray[1][i])
-    {
-        SR = SR * 10 + (tokArray[1][i]);
-        ++i;
-    }
+    SR = regnum(&tokArray[1][1]);
 
+    printf("SR = %d\n", SR);
     // Get BaseR
-    i = 1;
-    while (tokArray[2][i])
-    {
-        BaseR = BaseR * 10 + (tokArray[2][i]);
-        ++i;
-    }
+    BaseR = regnum(&tokArray[2][1]);
+
+    printf("BaseR = %d\n", BaseR);
 
     // Get boffset6
-    i = 0;
-    while (tokArray[3][i] != '#' && tokArray[3][i] != 'x')
-    {
-        ++i;
-    }
-
+    int i = 0;
     if (tokArray[3][i] == '#')
     {
-        while (tokArray[3][i + 1])
-        {
-            boffset6 = boffset6 * 10 + (tokArray[3][i + 1] - '0');
-            ++i;
-        }
+        boffset6 = my_atoi(&tokArray[3][i + 1]);
     }
 
     if (tokArray[3][i] == 'x')
@@ -1034,11 +1022,13 @@ unsigned short stb(void)
 
     boffset6 = boffset6 & 0x3F;
 
+    printf("boffset6 = %d\n", boffset6);
     return ((3 << 12) | (SR << 9) | (BaseR << 6) | (boffset6));
 }
 
 unsigned short stw(void)
 {
+    printf("stw\n");
     int SR = 0;
     int BaseR = 0;
     int offset6 = 0;
@@ -1062,31 +1052,18 @@ unsigned short stw(void)
     }
 
     // Get SR
-    int i = 1;
-    while (tokArray[1][i])
-    {
-        SR = SR * 10 + (tokArray[1][i] - '0');
-        ++i;
-    }
+    SR = regnum(&tokArray[1][1]);
+    printf("SR = %d\n", SR);
+
     // Get BaseR
-    i = 1;
-    while (tokArray[2][i])
-    {
-        BaseR = BaseR * 10 + (tokArray[2][i] - '0');
-        ++i;
-    }
+    BaseR = regnum(&tokArray[2][1]);
+    printf("BaseR = %d\n", BaseR);
+
     // Get offset6
-    i = 0;
+    int i = 0;
     if (tokArray[3][i] == '#')
     {
-        while (tokArray[3][i + 1])
-        {
-            if (tokArray[3][i + 1] >= '0' && tokArray[3][i + 1] <= '9')
-            {
-                offset6 = offset6 * 10 + (tokArray[3][i + 1] - '0');
-                ++i;
-            }
-        }
+        offset6 = my_atoi(&tokArray[3][i + 1]);
     }
 
     if (tokArray[3][i] == 'x')
@@ -1101,6 +1078,7 @@ unsigned short stw(void)
     }
 
     offset6 = offset6 & 0x3F;
+    printf("offset6 = %d\n", offset6);
 
     return ((7 << 12) | (SR << 9) | (BaseR << 6) | (offset6));
 }
@@ -1330,6 +1308,7 @@ unsigned short orig(void)
 
 unsigned short fill(void)
 {
+    printf("fill\n");
     int value = 0;
 
     if (!tokArray[1])
@@ -1369,6 +1348,7 @@ unsigned short fill(void)
         exit(3);
     }
 
+    printf("value = %x\n", value);
     return value;
 }
 

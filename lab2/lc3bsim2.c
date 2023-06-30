@@ -685,13 +685,16 @@ int TEMP_MEMORY[WORDS_IN_MEM][2];
 
 void setcc()
 {
-    if (TEMP_DR & 0x8000 == 0x8000)
+    printf("TEMP_DR = %x\n", TEMP_DR);
+    printf("%x & 0x8000 = %x\n", TEMP_DR, TEMP_DR & 0x8000);
+
+    if ((TEMP_DR & 0x8000) == 0x8000)
     {
         TEMP_N = 1;
         TEMP_Z = 0;
         TEMP_P = 0;
     }
-    else if (TEMP_DR == 0)
+    else if (Low16bits(TEMP_DR) == 0)
     {
         TEMP_N = 0;
         TEMP_Z = 1;

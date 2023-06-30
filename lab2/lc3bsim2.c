@@ -1,10 +1,13 @@
+/*
+    Name : Zhang Runmin
+    TyustID : 201920010125
+*/
+
 
 /***************************************************************/
 /*                                                             */
 /*   LC-3b Instruction Level Simulator                         */
 /*                                                             */
-/*   EE 460N                                                   */
-/*   The University of Texas at Austin                         */
 /*                                                             */
 /***************************************************************/
 
@@ -131,9 +134,9 @@ void run(int num_cycles) {
   printf("Simulating for %d cycles...\n\n", num_cycles);
   for (i = 0; i < num_cycles; i++) {
     if (CURRENT_LATCHES.PC == 0x0000) {
-	    RUN_BIT = FALSE;
-	    printf("Simulator halted\n\n");
-	    break;
+        RUN_BIT = FALSE;
+        printf("Simulator halted\n\n");
+        break;
     }
     cycle();
   }
@@ -399,7 +402,7 @@ int main(int argc, char *argv[]) {
    You may use the functions to get at the control bits defined
    above.
 
-   Begin your code here 	  			       */
+   Begin your code here       */
 
 /***************************************************************/
 
@@ -412,7 +415,6 @@ int DR, SR, SR1, SR2, imm5, amount4;
 bool add_imm5;
 void add()
 {
-    printf("ADD:\n");
     DR = GetInstructionField(11,9);
     SR1 = GetInstructionField(8,6);
 
@@ -426,18 +428,6 @@ void add()
     {
         add_imm5 = false;
         SR2 = GetInstructionField(2,0);
-    }
-
-    printf("    DR = %d\n", DR);
-    printf("    SR1 = %d\n", SR1);
-
-    if (choose)
-    {
-        printf("    imm5 = %d\n", imm5);
-    }
-    else
-    {
-        printf("    SR2 = %d\n", SR2);
     }
 }
 
@@ -463,17 +453,10 @@ void and()
 int n, z, p, PCoffset9;
 void br()
 {
-    printf("BR:\n");
-
     n = GetInstructionBit(11);
     z = GetInstructionBit(10);
     p = GetInstructionBit(9);
     PCoffset9 = GetInstructionField(8,0);
-
-    // Print information for testing
-    printf("    n = %d,\n   z = %d,\n    p = %d\n", n, z, p);
-    printf("    PCoffset9 = %d\n", PCoffset9);
-    printf("    PCoffset9 = 0x%x\n", PCoffset9);
 }
 
 int BaseR;
@@ -512,19 +495,14 @@ void ldb()
 int offset6;
 void ldw()
 {
-    printf("LDW:\n");
     DR = GetInstructionField(11,9);
-    printf("    DR = %d\n", DR);
     BaseR = GetInstructionField(8,6);
-    printf("    BaseR = %d\n", BaseR);
     offset6 = GetInstructionField(5,0);
-    printf("    offset6 = %d\n", offset6);
 }
 
 void lea()
 {
     DR = GetInstructionField(11,9);
-    printf("LEA: DR = %d\n", DR);
     PCoffset9 = GetInstructionField(8,0);
 }
 
@@ -563,16 +541,9 @@ void shf()
 
 void stb()
 {
-    printf("STB:\n");
-
     SR = GetInstructionField(11,9);
     BaseR = GetInstructionField(8,6);
     boffset6 = GetInstructionField(5,0);
-
-    // print information for testing
-    printf("    SR = %d\n", SR);
-    printf("    BaseR = %d\n", BaseR);
-    printf("    boffset6 = %d\n", boffset6);
 }
 
 int SR;
@@ -586,36 +557,24 @@ void stw()
 int trapvect8;
 void trap()
 {
-    printf("TRAP:\n");
-
     trapvect8 = GetInstructionField(7,0);
-
-    // Print information for testing
-    printf("    trapvect8 = 0x%x\n", trapvect8);
 }
 
 bool is_xor_imm5;
 void xor_not()
 {
-    printf("Decoding xor_not\n");
     DR = GetInstructionField(11,9);
-    printf("    DR = %d\n", DR);
-    printf("    bit[5] = %d\n", GetInstructionBit(5));
 
     if (GetInstructionBit(5))
     {
         SR1 = GetInstructionField(8,6);
         imm5 = GetInstructionField(4,0);
         is_xor_imm5 = true;
-        printf("    SR1 = %d\n", SR1);
-        printf("    imm5 = %d\n", imm5);
     }
     else
     {
         SR1 = GetInstructionField(8,6);
         SR2 = GetInstructionField(2,0);
-        printf("    SR1 = %d\n", SR1);
-        printf("    SR2 = %d\n", SR2);
         is_xor_imm5 = false;
     }
 }
@@ -655,9 +614,7 @@ void decode(int opcode)
             shf();
             break;
         case STB:
-            printf("STB = %d\n", STB);
             stb();
-            printf("EXIT stb()\n");
             break;
         case STW:
             stw();
@@ -685,9 +642,6 @@ int TEMP_MEMORY[WORDS_IN_MEM][2];
 
 void setcc()
 {
-    printf("TEMP_DR = %x\n", TEMP_DR);
-    printf("%x & 0x8000 = %x\n", TEMP_DR, TEMP_DR & 0x8000);
-
     if ((TEMP_DR & 0x8000) == 0x8000)
     {
         TEMP_N = 1;
@@ -710,8 +664,6 @@ void setcc()
 
 void add_exe()
 {
-    printf("ADD: Executing\n");
-
     if (add_imm5)
     {
         TEMP_DR = CURRENT_LATCHES.REGS[SR1] + signExt5(imm5);
@@ -724,10 +676,6 @@ void add_exe()
     TEMP_PC = CURRENT_LATCHES.PC + 2;
 
     setcc();
-
-    // Print information for test
-    printf("    TEMP_DR = %d\n", TEMP_DR);
-    printf("    N = %d,\n  Z = %d,\n   P = %d\n", TEMP_N, TEMP_Z, TEMP_P);
 }
 
 void and_exe()
@@ -748,8 +696,6 @@ void and_exe()
 
 void br_exe()
 {
-    printf("BR: Executing\n");
-
     if (n && CURRENT_LATCHES.N || z && CURRENT_LATCHES.Z || p && CURRENT_LATCHES.P)
     {
         TEMP_PC = CURRENT_LATCHES.PC + 2 + LSHF(signExt9(PCoffset9),1);
@@ -758,8 +704,6 @@ void br_exe()
     {
         TEMP_PC = CURRENT_LATCHES.PC + 2;
     }
-
-    printf("    TEMP_PC = %x\n", TEMP_PC);
 }
 
 void jmp_ret_exe()
@@ -790,17 +734,9 @@ void ldb_exe()
     TEMP_PC = CURRENT_LATCHES.PC + 2;
 
     setcc(TEMP_DR, &CURRENT_LATCHES);
-
-    // Print information for test
-    printf("    address = %x\n", address);
-    printf("    TEMP_DR = %x\n", TEMP_DR);
-    printf("    TEMP_PC = %x\n", TEMP_PC);
 }
 
 void ldw_exe() {
-    printf("LDW: Executing\n");
-    printf("    BaseR = %x\n", CURRENT_LATCHES.REGS[BaseR]);
-    printf("    offset6 = %d\n", offset6);
     int address = CURRENT_LATCHES.REGS[BaseR] + LSHF(signExt6(offset6),1);
     int baseAddress = address >> 1;
 
@@ -808,21 +744,12 @@ void ldw_exe() {
     TEMP_PC = CURRENT_LATCHES.PC + 2;
 
     setcc(TEMP_DR, &CURRENT_LATCHES);
-
-
-    // Print information for test
-    printf("    address = %x\n", address);
-    printf("    TEMP_DR = %x\n", TEMP_DR);
-    printf("    N = %d\n, Z= %d\n, P = %d\n", TEMP_N, TEMP_Z, TEMP_P);
 }
 
 void lea_exe()
 {
-    printf("\nLEA: Executing\n");
     TEMP_PC = CURRENT_LATCHES.PC + 2;
-    printf("New PC = %x\n", TEMP_PC);
     TEMP_DR = TEMP_PC + LSHF(signExt9(PCoffset9),1);
-    printf("Result = %x\n", TEMP_DR);
 }
 
 void rti_exe()
@@ -834,7 +761,6 @@ void shf_exe()
 {
     if (is_LSHF)
     {
-        printf("LSHF:\n");
         TEMP_DR = LSHF(CURRENT_LATCHES.REGS[SR], amount4);
     }
     else if (is_RSHFL)
@@ -857,18 +783,14 @@ int baseAddress, lsb;
 void stb_exe()
 {
     is_stb = true;
-    printf("STB: Executing\n");
 
     int address = CURRENT_LATCHES.REGS[BaseR] + signExt6(boffset6);
     baseAddress = address >> 1;
     lsb = address & 0x1;
 
     int data = CURRENT_LATCHES.REGS[SR] & 0xFF;
-    printf("    store data = %x\n", data);
-    printf("    address = %x\n", address);
     TEMP_MEMORY[baseAddress][lsb] = data;
     TEMP_PC = CURRENT_LATCHES.PC + 2;
-    printf("    TEMP_PC = %x\n", TEMP_PC);
 }
 
 bool is_stw = false;
@@ -889,8 +811,6 @@ void stw_exe()
 
 void trap_exe()
 {
-    printf("TRAP: Executing\n");
-
     TEMP_R7 = CURRENT_LATCHES.PC + 2;
     int baseAddress = LSHF(trapvect8,1);
 
@@ -898,28 +818,16 @@ void trap_exe()
     int high8bit = MEMORY[baseAddress][1];
 
     TEMP_PC = high8bit << 8 + low8bit;
-
-    // print information
-    printf("    TEMP_R7 = 0x%x\n", TEMP_R7);
-    printf("    baseAddress = %x\n", baseAddress);
-    printf("    low8bit = %x\n", low8bit);
-    printf("    high8bit = %x\n", high8bit);
-    printf("    TEMP_PC = %x\n", TEMP_PC);
 }
 
 void xor_not_exe()
 {
     if (is_xor_imm5)
     {
-        printf(" xor DR, SR, imm5\n");
-        printf("%x ^ %x\n", CURRENT_LATCHES.REGS[SR1], signExt5(imm5));
         TEMP_DR = CURRENT_LATCHES.REGS[SR1] ^ Low16bits(signExt5(imm5));
     }
     else
     {
-        printf(" xor DR, SR1, SR2\n");
-        printf("SR1 = %d, SR2 = %d\n", SR1, SR2);
-        printf("%x ^ %x\n", CURRENT_LATCHES.REGS[SR1], CURRENT_LATCHES.REGS[SR2]);
         TEMP_DR = CURRENT_LATCHES.REGS[SR1] ^ CURRENT_LATCHES.REGS[SR2];
     }
 
@@ -1002,10 +910,6 @@ void write_back(int opcode)
         MEMORY[baseAddress][0] = TEMP_MEMORY[baseAddress][0];
         MEMORY[baseAddress][1] = TEMP_MEMORY[baseAddress][1];
     }
-
-    // Print information for test
-    printf("PC = %x\n, N = %d\n, Z = %d\n, P = %d\n", NEXT_LATCHES.PC, NEXT_LATCHES.N, NEXT_LATCHES.Z, NEXT_LATCHES.P);
-    printf("Reg[%d] = %x\n", DR, NEXT_LATCHES.REGS[DR]);
 }
 
 void process_instruction(){
@@ -1019,27 +923,18 @@ void process_instruction(){
    */
 
     // Get one instruction form memory
-    printf("\n\n****** Begining Fetch******\n\n");
     instructionLow8bit = MEMORY[CURRENT_LATCHES.PC >> 1][0];
     instructionHigh8bit = MEMORY[CURRENT_LATCHES.PC >> 1][1];
     instruction = instructionLow8bit | (instructionHigh8bit << 8);
-    printf("Fetch instruction : 0x%.4x\n", instruction);
 
     // Decode this instruction
-    printf("\nBegining Decode\n");
     int opcode = instruction >> 12;
-    printf("opcode = %d\n", opcode);
     decode(opcode);
-    printf("Ending Decode\n");
 
     // Execute
-    printf("\nBegining Execution\n");
     execute(opcode);
-    printf("Ending Execution\n");
 
     // Write Back (update)
-    printf("\nBegining Write Back\n");
     write_back(opcode);
-    printf("Ending Write Back\n");
 }
 

@@ -737,7 +737,16 @@ void ldb_exe()
 }
 
 void ldw_exe() {
+    // The base register must contain a word address (i.e. its contents must be even).
+    // If the base register contains an odd address, an illegal operand address exception occrus.
+    if (CURRENT_LATCHES.REGS[BaseR] & 0x1)
+    {
+        ERROR("LDW: Access Address must be Word-Aligned\n");
+        exit(ILLEGAL_ADDRESS);
+    }
+
     int address = CURRENT_LATCHES.REGS[BaseR] + LSHF(signExt6(offset6),1);
+
     int baseAddress = address >> 1;
 
     TEMP_DR = (MEMORY[baseAddress][1] << 8) | MEMORY[baseAddress][0];

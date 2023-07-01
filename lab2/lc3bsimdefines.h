@@ -1,6 +1,8 @@
 #ifndef __LC3BSIMDEFINES__H
 #define __LC3BSIMDEFINES__H
 
+#include <stdio.h>
+
 #define ADD 1
 #define AND 5
 #define BR 0
@@ -20,5 +22,10 @@ typedef enum {
     false = 0,
     true = 1
 } bool;
+
+#define ERROR(x) fputs("x", stderr);
+
+#define ILLEGAL_ADDRESS (-10)
+
 
 #endif

@@ -634,7 +634,6 @@ void eval_micro_sequencer() {
     else // Decode
     {
         nextStateAddress = opcode;
-        NEXT_STATE .BEN = ((n && CURRENT_LATCHES.N) || (z && CURRENT_LATCHES.Z) || (p && CURRENT_LATCHES.P));
     }
 
     NEXT_LATCHES.STATE_NUMBER = nextStateAddress;
@@ -929,16 +928,73 @@ void drive_bus() {
 
     if (gateID == GateMDR)
     {
-        if (GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION)) // LDW
-            return Low16bits(CURRENT_LATCHES.MDR);
-        else // LDB
-            return Low16bits(signExt(CURRENT_LATCHES.MDR & 0xFF, 8));
+        if (GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION)) // Is a Word
+            bus_data = Low16bits(CURRENT_LATCHES.MDR);
+        else // is a byte
+            bus_data = Low16bits(signExt(CURRENT_LATCHES.MDR & 0xFF, 8));
     }
 }
 
-bool ldw()
+bool is_ldw()
 {
     return GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_mar()
+{
+    return GetLD_MAR(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_mdr()
+{
+    return GetLD_MDR(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_ir()
+{
+    return GetLD_IR(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_ben()
+{
+    return GetLD_BEN(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_reg()
+{
+    return GetLD_REG(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_cc()
+{
+    return GetLD_CC(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_pc()
+{
+    return GetLD_PC(CURRENT_LATCHES.MICROINSTRUTION);
+}
+
+void setcc()
+{
+    if (Low16bits(bus_data) >> 15) & 0x1)
+    {
+         NEXT_LATCHES.N = 1;
+         NEXT_LATCHES.Z = 0;
+         NEXT_LATCHES.P = 0;
+    }
+    else if (Low16bits(bus_data) == 0)
+    {
+        NEXT_LATCHES.N = 0;
+        NEXT_LATCHES.Z = 1;
+        NEXT_LATCHES.P = 0;
+    }
+    else
+    {
+        NEXT_LATCHES.N = 0;
+        NEXT_LATCHES.Z = 0;
+        NEXT_LATCHES.P = 1;
+    }
 }
 
 void latch_datapath_values() {
@@ -952,12 +1008,12 @@ void latch_datapath_values() {
 
     // There are 7 LD.xx that we should latch
     // 1. LD.MAR
-    if (GetLD_MAR(CURRENT_LATCHES.MICROINSTRUCTION))
+    if (is_ld_mar())
     {
         NEXT_LATCHES.MAR = Low16bits(bus_data);
     }
     // 2. LD.MDR
-    if (GetLD_MDR(CURRENT_LATCHES.MICROINSTRUCTION))
+    if (is_ld_mdr())
     {
         // 2.1 From memory
         if (GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION))
@@ -979,24 +1035,45 @@ void latch_datapath_values() {
         }
 
         // 2.2 From BUS
-        if (ldw())
+        if (is_ldw())
         {
             NEXT_LATCHES.MDR = Low16Bits(bus_data);
         }
         else
         {
-            NEXT_LATCHES.MDR = bus_data & 0xFF;
+            NEXT_LATCHES.MDR = Low16bits(bus_data & 0xFF);
         }
     }
 
     // 3. LD.IR
-    if (GetLD_IR(CURRENT_LATCHES.MICROINSTRUCTION))
+    if (is_ld_ir())
     {
         NEXT_LATCHES.IR = Low16bits(bus_data);
     }
 
     // 4. LD.BEN
+    if (is_ld_ben())
+    {
+        int n = GetInstructionField(11);
+        int z = GetInstructionField(10);
+        int p = GetInstructionField(9);
+
+        NEXT_LATCHES.BEN = (n & CURRENT_LATCHES.N) || (z & CURRENT_LATCHES.Z) || (p & CURRENT_LATCHES.P);
+    }
+
     // 5. LD.REG
+    if (is_ld_reg())
+    {
+    }
+
     // 6. LD.CC
+    if (is_ld_cc())
+    {
+        setcc();
+    }
+
     // 7. LD.PC
+    if (is_ld_pc())
+    {
+    }
 }

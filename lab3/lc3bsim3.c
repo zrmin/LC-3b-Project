@@ -575,7 +575,7 @@ void getCurrentCycleControlBits(int *J, int *COND, int *IRD)
 unsigned int instruction;
 unsigned int nextStateAddress;
 void eval_micro_sequencer() {
-
+printf("Begining Caculate next state's address\n");
   /*
    * Evaluate the address of the next state according to the
    * micro sequencer logic. Latch the next microinstruction.
@@ -584,12 +584,14 @@ void eval_micro_sequencer() {
     // 1. What's going on in the current clock cycle
     int J, COND, IRD;
     getCurrentCycleControlBits(&J, &COND, & IRD);
+    printf("J = %d, COND = %d, IRD = %d\n", J, COND, IRD);
 
     // 2. The LC-3b instruction that is being executed
     instruction = CURRENT_LATCHES.IR;
     printf("instruction = %x\n", instruction);
     unsigned int opcode = GetInstructionField(15,12);
     unsigned int jsrOrJsrr = GetInstructionField(11,11);
+    printf("jsrOrJsrr = %d\n", jsrOrJsrr);
     unsigned int n = GetInstructionField(11,11);
     unsigned int z = GetInstructionField(10,10);
     unsigned int p = GetInstructionField(9,9);
@@ -608,16 +610,20 @@ void eval_micro_sequencer() {
         {
             nextStateAddress = J | (BEN << 2);
         }
-        else if (COND = 1) // R
+        else if (COND == 1) // R
         {
             nextStateAddress = J | (R << 1);
         }
-        else if (COND = 3) // IR[11], JSR_R
+        else if (COND == 3) // IR[11], JSR_R
         {
+            printf("IR[11] determines next state address\n");
+            printf("IR[11] = %d\n", jsrOrJsrr);
+            printf("Original J(next_state_address) = %d\n", J);
             nextStateAddress = J | (jsrOrJsrr);
         }
         else // Original address
         {
+            printf("JSR: I'm here!\n");
             nextStateAddress = J;
         }
     }

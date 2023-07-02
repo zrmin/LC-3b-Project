@@ -936,6 +936,10 @@ void drive_bus() {
     }
 }
 
+bool ldw()
+{
+    return GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION);
+}
 
 void latch_datapath_values() {
 
@@ -946,5 +950,53 @@ void latch_datapath_values() {
    * after drive_bus.
    */
 
+    // There are 7 LD.xx that we should latch
+    // 1. LD.MAR
+    if (GetLD_MAR(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        NEXT_LATCHES.MAR = Low16bits(bus_data);
+    }
+    // 2. LD.MDR
+    if (GetLD_MDR(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        // 2.1 From memory
+        if (GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION))
+        {
+            if (CURRENT_LATCHES.READY)
+            {
+                int address = CURRENT_LATCHES.MAR;
+                int baseAddress = address >> 1;
+                int lsb = address & 0x1;
 
+                // Read (always read, if GateMDR is zero, read will not have side-effective)
+                if (GetR_W(CURRENT_LATCHES.MICROINSTRUCTION) == 0)
+                {
+                    int lowData = MEMORY[baseAddress][0] & 0xFF;
+                    int highData = MEMORY[baseAddress][1] & 0xFF;
+                    NEXT_LATCHES.MDR = ((highData << 8) | lowData);
+                }
+            }
+        }
+
+        // 2.2 From BUS
+        if (ldw())
+        {
+            NEXT_LATCHES.MDR = Low16Bits(bus_data);
+        }
+        else
+        {
+            NEXT_LATCHES.MDR = bus_data & 0xFF;
+        }
+    }
+
+    // 3. LD.IR
+    if (GetLD_IR(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        NEXT_LATCHES.IR = Low16bits(bus_data);
+    }
+
+    // 4. LD.BEN
+    // 5. LD.REG
+    // 6. LD.CC
+    // 7. LD.PC
 }

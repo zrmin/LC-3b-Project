@@ -18,4 +18,13 @@ typedef enum {
 #define GateALU (3)
 #define GateMDR (4)
 
+// Bus data
+#define NODATA (0)
+
+// ALUK
+#define ADD (0)
+#define AND (1)
+#define XOR (2)
+#define PASSA (3)
+
 #endif

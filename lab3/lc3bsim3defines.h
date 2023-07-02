@@ -10,6 +10,9 @@ typedef enum {
 
 #define ERROR(x) (fputs("x", stderr))
 #define BR (0)
+
+// GateID for driving bus
+#define NONEGate (0)
 #define GateMARMUX (1)
 #define GateSHF (2)
 #define GateALU (3)

@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "lc3bsim3defines.h"
+#include "utils.h"
 
 /***************************************************************/
 /*                                                             */
@@ -202,7 +203,10 @@ void cycle() {
   drive_bus();
   latch_datapath_values();
 
+  printf("NEXT_LATCHES.MDR = %x\n", NEXT_LATCHES.MDR);
   CURRENT_LATCHES = NEXT_LATCHES;
+
+  printf("CURRENT_LATCHES.MDR = %x\n",  CURRENT_LATCHES.MDR);
 
   CYCLE_COUNT++;
 }
@@ -513,7 +517,7 @@ void initialize(char *ucode_filename, char *program_filename, int num_prog_files
 
     NEXT_LATCHES = CURRENT_LATCHES;
 
-    RUN_BIT = TRUE;
+    RUN_BIT = true;
 }
 
 /***************************************************************/
@@ -564,23 +568,11 @@ int main(int argc, char *argv[]) {
 /***************************************************************/
 
 // Get current cycle's control bit to determine next state's address
-void getCurrentCycleControlBits(int &J, int &COND, int &IRD)
+void getCurrentCycleControlBits(int *J, int *COND, int *IRD)
 {
     *J = GetJ(CURRENT_LATCHES.MICROINSTRUCTION);
     *COND = GetCOND(CURRENT_LATCHES.MICROINSTRUCTION);
     * IRD = GetIRD(CURRENT_LATCHES.MICROINSTRUCTION);
-}
-
-// Get current cycle's instruction to determine next state's address
-unsigned int getCurrentCycleInstruction()
-{
-    int current_pc = CURRENT_LATCHES.PC;
-    int baseAddress = current_pc >> 1;
-
-    int lowInstruction = MEMORY[baseAddress][0];
-    int highInstruction = MEMORY[baseAddress][1];
-
-    return ((highInstruction << 8) | (lowInstruction));
 }
 
 unsigned int instruction;
@@ -597,9 +589,10 @@ void eval_micro_sequencer() {
     getCurrentCycleControlBits(&J, &COND, & IRD);
 
     // 2. The LC-3b instruction that is being executed
-    instruction = GetCurrentCycleInstruction();
-    unsigned int opcode = GetInstructionField(&instruction,15,12);
-    unsigned int jsrOrJsrr = GetInstructionField(&instruction,11,11);
+    instruction = CURRENT_LATCHES.IR;
+    printf("instruction = %x\n", instruction);
+    unsigned int opcode = GetInstructionField(15,12);
+    unsigned int jsrOrJsrr = GetInstructionField(11,11);
     unsigned int n = GetInstructionField(11,11);
     unsigned int z = GetInstructionField(10,10);
     unsigned int p = GetInstructionField(9,9);
@@ -633,13 +626,17 @@ void eval_micro_sequencer() {
     }
     else // Decode
     {
+        printf("opcode = %d\n", opcode);
         nextStateAddress = opcode;
     }
 
     NEXT_LATCHES.STATE_NUMBER = nextStateAddress;
 
+    // Testing
+    printf("NEXT STATE NUMBER = %d\n", NEXT_LATCHES.STATE_NUMBER);
+
     // Latch next state's microinstruction
-    for (int i = 0;i <CONTROL_STORE_BITS; ++i)
+    for (int i = 0;i < CONTROL_STORE_BITS; ++i)
     {
         NEXT_LATCHES.MICROINSTRUCTION[i] = CONTROL_STORE[NEXT_LATCHES.STATE_NUMBER][i];
     }
@@ -675,7 +672,7 @@ void cycle_memory() {
         return ;
     }
 
-    remainingCycles = (remainningCycles  == 1) ? MEM_CYCLES : (remainingCycles - 1);
+    remainingCycles = (remainingCycles  == 1) ? MEM_CYCLES : (remainingCycles - 1);
 
     if (remainingCycles == 1)
     {
@@ -696,11 +693,11 @@ void cycle_memory() {
         int lowData = data & 0xFF;
         int highData = (data >> 8) & 0xFF;
 
-        if (write_memroy())
+        if (write_memory())
         {
             if (stw())
             {
-                MEMROY[baseAddress][0] = lowData;
+                MEMORY[baseAddress][0] = lowData;
                 MEMORY[baseAddress][1] = highData;
             }
             else
@@ -732,7 +729,7 @@ void eval_bus_drivers() {
    */
     gateID = NONEGate;
 
-    if (GetGATE_MARMUX(CURRENT_LATCHES.MICROINSTRUCION))
+    if (GetGATE_MARMUX(CURRENT_LATCHES.MICROINSTRUCTION))
     {
         gateID = GateMARMUX;
     }
@@ -749,84 +746,19 @@ void eval_bus_drivers() {
 
     if (GetGATE_ALU(CURRENT_LATCHES.MICROINSTRUCTION))
     {
-        gateID = GatALU;
+        gateID = GateALU;
     }
 
     if (GetGATE_MDR(CURRENT_LATCHES.MICROINSTRUCTION))
     {
-        gateID = Gate_MDR;
+        gateID = GateMDR;
     }
 }
 
-int adder()
+
+int SR1MUX_UNIT()
 {
-    int op1, op2;
-    // Get op1
-    int op = GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTIOON);
-    if (op == 3)
-    {
-        op1 = signExt(GetInstructinField(10,0));
-    }
-    else if (op == 2)
-    {
-        op1 = signExt(GetInstructionField(8,0));
-    }
-    else if (op == 1)
-    {
-        op1 = signExt(GetInstructionField(5,0));
-    }
-    else
-    {
-        op1 = 0;
-    }
-
-    if (GetLSHF(CURRENT_LATCHES.MICROINSTRUCTION))
-    {
-        op1 = op1 << 1;
-    }
-
-    // Get op2
-    if(FROMBASER)
-    {
-        // SR1MUX
-        if (GetSR1MUX(CURRENT_LATCHES.MICROINSTRUCTION))
-        {
-            op2 = CURRENT_LATCHES.REGS[GetInstructionField(8,6)];
-        }
-        else
-        {
-            op2 = CURRENT_LATCHES.REGS[GetInstructionField(11,9)];
-        }
-    }
-    else
-    {
-        op2 = CURRENT_LATCHES.PC;
-    }
-
-
-    return op1 + op2;
-}
-
-int trap()
-{
-    return (GetInstructionField(7,0)) << 1;
-}
-
-int MARMUX()
-{
-    if (FROMADDER)
-    {
-        return adder();
-    }
-    else
-    {
-        return trap();
-    }
-}
-
-int SR1MUX()
-{
-    if (GetSR1MUX(CURRENT_LATCHES.MICROINSTRUCTION)))
+    if (GetSR1MUX(CURRENT_LATCHES.MICROINSTRUCTION))
     {
         return CURRENT_LATCHES.REGS[GetInstructionField(8,6)];
     }
@@ -836,23 +768,94 @@ int SR1MUX()
     }
 }
 
-int SR2MUX()
+int SR2MUX_UNIT()
 {
     if (GetInstructionField(5,5)) // imm5
     {
         return GetInstructionField(4,0);
     }
-    else // register rs2
+    else // register sr2
     {
         return CURRENT_LATCHES.REGS[GetInstructionField(2,0)];
     }
 }
 
-int ALU_Result()
+int ADDR1MUX_UNIT()
+{
+    if(FROMBASER)
+    {
+        // SR1MUX
+        return SR1MUX_UNIT();
+    }
+    else
+    {
+        return CURRENT_LATCHES.PC;
+    }
+}
+
+int ADDR2MUX_UNIT()
+{
+    int op = GetADDR2MUX(CURRENT_LATCHES.MICROINSTRUCTION);
+    if (op == PCOFFSET11)
+    {
+        return signExt(GetInstructionField(10,0), 11);
+    }
+    else if (op == PCOFFSET9)
+    {
+        return signExt(GetInstructionField(8,0), 9);
+    }
+    else if (op == OFFSET6)
+    {
+        return signExt(GetInstructionField(5,0), 6);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+int LSHF1_UNIT(int value)
+{
+    return value << 1;
+}
+
+int ADDER_UNIT()
 {
     int op1, op2;
-    op1 = SR1MUX();
-    op2 = SR2MUX();
+
+    // Get op1
+    op1 = LSHF1_UNIT(ADDR2MUX_UNIT());
+
+    // Get op2
+    op2 = ADDR1MUX_UNIT();
+
+    return op1 + op2;
+}
+
+int trap()
+{
+    return (GetInstructionField(7,0)) << 1;
+}
+
+
+int MARMUX_UNIT()
+{
+    if (FROMADDER)
+    {
+        return ADDER_UNIT();
+    }
+    else
+    {
+        return trap();
+    }
+}
+
+
+int ALU_UNIT()
+{
+    int op1, op2;
+    op1 = SR1MUX_UNIT();
+    op2 = SR2MUX_UNIT();
 
     int ALUK = GetALUK(CURRENT_LATCHES.MICROINSTRUCTION);
     if (ALUK == ADD)
@@ -891,7 +894,7 @@ void drive_bus() {
 
     if (gateID == GateMARMUX)
     {
-        bus_data = Low16bits(MARMUX());
+        bus_data = Low16bits(MARMUX_UNIT());
     }
 
     if (gateID == GatePC)
@@ -901,14 +904,14 @@ void drive_bus() {
 
     if (gateID == GateSHF)
     {
-        int oprand = SR1MUX();
+        int operand = SR1MUX_UNIT();
 
         int amount4 = GetInstructionField(3,0);
         if (GetInstructionField(4,4)) // Right shift
         {
             if (GetInstructionField(5,5)) // Arithmetic
             {
-                bus_data = Low16bits(signExt(operand, 16) >> amount);
+                bus_data = Low16bits(signExt(operand, 16) >> amount4);
             }
             else
             {
@@ -923,7 +926,7 @@ void drive_bus() {
 
     if (gateID == GateALU)
     {
-        bus_data = Low16bits(ALU_Result());
+        bus_data = Low16bits(ALU_UNIT());
     }
 
     if (gateID == GateMDR)
@@ -972,12 +975,12 @@ bool is_ld_cc()
 
 bool is_ld_pc()
 {
-    return GetLD_PC(CURRENT_LATCHES.MICROINSTRUTION);
+    return GetLD_PC(CURRENT_LATCHES.MICROINSTRUCTION);
 }
 
 void setcc()
 {
-    if (Low16bits(bus_data) >> 15) & 0x1)
+    if ((Low16bits(bus_data) >> 15) & 0x1)
     {
          NEXT_LATCHES.N = 1;
          NEXT_LATCHES.Z = 0;
@@ -994,6 +997,30 @@ void setcc()
         NEXT_LATCHES.N = 0;
         NEXT_LATCHES.Z = 0;
         NEXT_LATCHES.P = 1;
+    }
+}
+
+int PCMUX_UNIT()
+{
+    // Testing
+    printf("Entering PCMUX UNIT\n");
+
+    if (GetPCMUX(CURRENT_LATCHES.MICROINSTRUCTION) == FROMBUS)
+    {
+        printf("PCMUX = %d\n", GetPCMUX(CURRENT_LATCHES.MICROINSTRUCTION));
+        printf("CURRENT_LATCHES.STATE_NUMBER = %d\n", CURRENT_LATCHES.STATE_NUMBER);
+        printf("PC from BUS\n");
+        return bus_data;
+    }
+    else if (GetPCMUX(CURRENT_LATCHES.MICROINSTRUCTION) == FROMPCPLUS2)
+    {
+        printf("PC from PC + 2\n");
+        return CURRENT_LATCHES.PC + 2;
+    }
+    else // From Adder
+    {
+        printf("PC from ADDER\n");
+        return ADDER_UNIT();
     }
 }
 
@@ -1015,12 +1042,16 @@ void latch_datapath_values() {
     // 2. LD.MDR
     if (is_ld_mdr())
     {
+        printf("Begining LOAD MDR\n");
         // 2.1 From memory
         if (GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION))
         {
+            printf("Load MDR from Memory\n");
             if (CURRENT_LATCHES.READY)
             {
+                printf("CURRENT_LATCHES.READY = %d\n", CURRENT_LATCHES.READY);
                 int address = CURRENT_LATCHES.MAR;
+                printf("address = %x\n", address);
                 int baseAddress = address >> 1;
                 int lsb = address & 0x1;
 
@@ -1029,34 +1060,44 @@ void latch_datapath_values() {
                 {
                     int lowData = MEMORY[baseAddress][0] & 0xFF;
                     int highData = MEMORY[baseAddress][1] & 0xFF;
+                    printf("lowData = %x\n", lowData);
+                    printf("highData = %x\n", highData);
                     NEXT_LATCHES.MDR = ((highData << 8) | lowData);
+                    printf("NEXT_LATCHES.MDR = %x\n", NEXT_LATCHES.MDR);
                 }
             }
         }
 
         // 2.2 From BUS
-        if (is_ldw())
-        {
-            NEXT_LATCHES.MDR = Low16Bits(bus_data);
-        }
         else
         {
-            NEXT_LATCHES.MDR = Low16bits(bus_data & 0xFF);
+            if (is_ldw())
+            {
+                printf("Load MDR from BUS\n");
+                NEXT_LATCHES.MDR = Low16bits(bus_data);
+            }
+            else
+            {
+
+                NEXT_LATCHES.MDR = Low16bits(bus_data & 0xFF);
+            }
         }
     }
 
     // 3. LD.IR
     if (is_ld_ir())
     {
+        printf("Begining Loading IR\n");
         NEXT_LATCHES.IR = Low16bits(bus_data);
+        printf("NEXT_LATCHES.IR = %x\n", NEXT_LATCHES.IR);
     }
 
     // 4. LD.BEN
     if (is_ld_ben())
     {
-        int n = GetInstructionField(11);
-        int z = GetInstructionField(10);
-        int p = GetInstructionField(9);
+        int n = GetInstructionField(11,11);
+        int z = GetInstructionField(10,10);
+        int p = GetInstructionField(9,9);
 
         NEXT_LATCHES.BEN = (n & CURRENT_LATCHES.N) || (z & CURRENT_LATCHES.Z) || (p & CURRENT_LATCHES.P);
     }
@@ -1064,6 +1105,15 @@ void latch_datapath_values() {
     // 5. LD.REG
     if (is_ld_reg())
     {
+        if (GetDRMUX(CURRENT_LATCHES.MICROINSTRUCTION)) // DR = R7
+        {
+            NEXT_LATCHES.REGS[7] = Low16bits(bus_data);
+        }
+        else
+        {
+            int regnum = GetInstructionField(11,9);
+            NEXT_LATCHES.REGS[regnum] = Low16bits(bus_data);
+        }
     }
 
     // 6. LD.CC
@@ -1075,5 +1125,7 @@ void latch_datapath_values() {
     // 7. LD.PC
     if (is_ld_pc())
     {
+        NEXT_LATCHES.PC = Low16bits(PCMUX_UNIT());
+        printf("NEXT_LATCHES.PC = %x\n", NEXT_LATCHES.PC);
     }
 }

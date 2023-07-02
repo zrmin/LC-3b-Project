@@ -584,14 +584,11 @@ printf("Begining Caculate next state's address\n");
     // 1. What's going on in the current clock cycle
     int J, COND, IRD;
     getCurrentCycleControlBits(&J, &COND, & IRD);
-    printf("J = %d, COND = %d, IRD = %d\n", J, COND, IRD);
 
     // 2. The LC-3b instruction that is being executed
     instruction = CURRENT_LATCHES.IR;
-    printf("instruction = %x\n", instruction);
     unsigned int opcode = GetInstructionField(15,12);
     unsigned int jsrOrJsrr = GetInstructionField(11,11);
-    printf("jsrOrJsrr = %d\n", jsrOrJsrr);
     unsigned int n = GetInstructionField(11,11);
     unsigned int z = GetInstructionField(10,10);
     unsigned int p = GetInstructionField(9,9);
@@ -616,27 +613,19 @@ printf("Begining Caculate next state's address\n");
         }
         else if (COND == 3) // IR[11], JSR_R
         {
-            printf("IR[11] determines next state address\n");
-            printf("IR[11] = %d\n", jsrOrJsrr);
-            printf("Original J(next_state_address) = %d\n", J);
             nextStateAddress = J | (jsrOrJsrr);
         }
         else // Original address
         {
-            printf("JSR: I'm here!\n");
             nextStateAddress = J;
         }
     }
     else // Decode
     {
-        printf("opcode = %d\n", opcode);
         nextStateAddress = opcode;
     }
 
     NEXT_LATCHES.STATE_NUMBER = nextStateAddress;
-
-    // Testing
-    printf("NEXT STATE NUMBER = %d\n", NEXT_LATCHES.STATE_NUMBER);
 
     // Latch next state's microinstruction
     for (int i = 0;i < CONTROL_STORE_BITS; ++i)
@@ -710,8 +699,6 @@ void cycle_memory() {
         }
         else
         {
-            printf("Read Memory\n");
-            printf("address = %x\n", address);
             NEXT_LATCHES.MDR = ((MEMORY[baseAddress][1] << 8)) | (MEMORY[baseAddress][0]);
         }
 
@@ -811,9 +798,6 @@ int ADDR2MUX_UNIT()
     }
     else if (op == OFFSET6)
     {
-        printf("Load or Store instruction\n");
-        printf("offset6 = %d\n", GetInstructionField(5,0));
-        printf("signExt(offset) = %d\n", signExt(GetInstructionField(5,0),6));
         return signExt(GetInstructionField(5,0), 6);
     }
     else
@@ -838,11 +822,9 @@ int ADDER_UNIT()
 
     // Get op1
     op1 = LSHF1_UNIT(ADDR2MUX_UNIT());
-    printf("ADDER: OP1 = %x\n", op1);
 
     // Get op2
     op2 = ADDR1MUX_UNIT();
-    printf("      OP2 = %x\n", op2);
 
     return op1 + op2;
 }
@@ -857,7 +839,6 @@ int MARMUX_UNIT()
 {
     if (FROMADDER)
     {
-        printf("MARMUX: From ADDER\n");
         return ADDER_UNIT();
     }
     else
@@ -876,8 +857,6 @@ int ALU_UNIT()
     int ALUK = GetALUK(CURRENT_LATCHES.MICROINSTRUCTION);
     if (ALUK == ADD)
     {
-        printf("op1 = 0x%x, op2 = 0x%x\n", op1, op2);
-        printf("op1 + op2 = %x\n", op1 +op2);
         return op1 + op2;
     }
 
@@ -1031,24 +1010,16 @@ void setcc()
 
 int PCMUX_UNIT()
 {
-    // Testing
-    printf("Entering PCMUX UNIT\n");
-
     if (GetPCMUX(CURRENT_LATCHES.MICROINSTRUCTION) == FROMBUS)
     {
-        printf("PCMUX = %d\n", GetPCMUX(CURRENT_LATCHES.MICROINSTRUCTION));
-        printf("CURRENT_LATCHES.STATE_NUMBER = %d\n", CURRENT_LATCHES.STATE_NUMBER);
-        printf("PC from BUS\n");
         return bus_data;
     }
     else if (GetPCMUX(CURRENT_LATCHES.MICROINSTRUCTION) == FROMPCPLUS2)
     {
-        printf("PC from PC + 2\n");
         return CURRENT_LATCHES.PC + 2;
     }
     else // From Adder
     {
-        printf("PC from ADDER\n");
         return ADDER_UNIT();
     }
 }
@@ -1071,16 +1042,12 @@ void latch_datapath_values() {
     // 2. LD.MDR
     if (is_ld_mdr())
     {
-        printf("Begining LOAD MDR\n");
         // 2.1 From memory
         if (GetMIO_EN(CURRENT_LATCHES.MICROINSTRUCTION))
         {
-            printf("Load MDR from Memory\n");
             if (CURRENT_LATCHES.READY)
             {
-                printf("CURRENT_LATCHES.READY = %d\n", CURRENT_LATCHES.READY);
                 int address = CURRENT_LATCHES.MAR;
-                printf("address = %x\n", address);
                 int baseAddress = address >> 1;
                 int lsb = address & 0x1;
 
@@ -1089,10 +1056,7 @@ void latch_datapath_values() {
                 {
                     int lowData = MEMORY[baseAddress][0] & 0xFF;
                     int highData = MEMORY[baseAddress][1] & 0xFF;
-                    printf("lowData = %x\n", lowData);
-                    printf("highData = %x\n", highData);
                     NEXT_LATCHES.MDR = ((highData << 8) | lowData);
-                    printf("NEXT_LATCHES.MDR = %x\n", NEXT_LATCHES.MDR);
                 }
             }
         }
@@ -1102,7 +1066,6 @@ void latch_datapath_values() {
         {
             if (is_ldw())
             {
-                printf("Load MDR from BUS\n");
                 NEXT_LATCHES.MDR = Low16bits(bus_data);
             }
             else
@@ -1116,9 +1079,7 @@ void latch_datapath_values() {
     // 3. LD.IR
     if (is_ld_ir())
     {
-        printf("Begining Loading IR\n");
         NEXT_LATCHES.IR = Low16bits(bus_data);
-        printf("NEXT_LATCHES.IR = %x\n", NEXT_LATCHES.IR);
     }
 
     // 4. LD.BEN
@@ -1155,6 +1116,5 @@ void latch_datapath_values() {
     if (is_ld_pc())
     {
         NEXT_LATCHES.PC = Low16bits(PCMUX_UNIT());
-        printf("NEXT_LATCHES.PC = %x\n", NEXT_LATCHES.PC);
     }
 }

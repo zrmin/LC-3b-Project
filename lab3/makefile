@@ -9,4 +9,4 @@ run:
 	./simulator ucode output.obj
 
 clear:
-	rm -rf simulator *.swp core
+	rm -rf simulator *.swp core dumpsim

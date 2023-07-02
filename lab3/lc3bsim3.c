@@ -203,10 +203,7 @@ void cycle() {
   drive_bus();
   latch_datapath_values();
 
-  printf("NEXT_LATCHES.MDR = %x\n", NEXT_LATCHES.MDR);
   CURRENT_LATCHES = NEXT_LATCHES;
-
-  printf("CURRENT_LATCHES.MDR = %x\n",  CURRENT_LATCHES.MDR);
 
   CYCLE_COUNT++;
 }
@@ -707,7 +704,9 @@ void cycle_memory() {
         }
         else
         {
-            NEXT_LATCHES.MDR = ((MEMORY[baseAddress][1] << 8) & 0xFF) | (MEMORY[baseAddress][0]);
+            printf("Read Memory\n");
+            printf("address = %x\n", address);
+            NEXT_LATCHES.MDR = ((MEMORY[baseAddress][1] << 8)) | (MEMORY[baseAddress][0]);
         }
 
         NEXT_LATCHES.READY = 0;
@@ -772,7 +771,7 @@ int SR2MUX_UNIT()
 {
     if (GetInstructionField(5,5)) // imm5
     {
-        return GetInstructionField(4,0);
+        return signExt(GetInstructionField(4,0), 5);
     }
     else // register sr2
     {
@@ -806,6 +805,9 @@ int ADDR2MUX_UNIT()
     }
     else if (op == OFFSET6)
     {
+        printf("Load or Store instruction\n");
+        printf("offset6 = %d\n", GetInstructionField(5,0));
+        printf("signExt(offset) = %d\n", signExt(GetInstructionField(5,0),6));
         return signExt(GetInstructionField(5,0), 6);
     }
     else
@@ -816,7 +818,12 @@ int ADDR2MUX_UNIT()
 
 int LSHF1_UNIT(int value)
 {
-    return value << 1;
+    if (GetLSHF1(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        return value << 1;
+    }
+
+    return value;
 }
 
 int ADDER_UNIT()
@@ -825,9 +832,11 @@ int ADDER_UNIT()
 
     // Get op1
     op1 = LSHF1_UNIT(ADDR2MUX_UNIT());
+    printf("ADDER: OP1 = %x\n", op1);
 
     // Get op2
     op2 = ADDR1MUX_UNIT();
+    printf("      OP2 = %x\n", op2);
 
     return op1 + op2;
 }
@@ -842,6 +851,7 @@ int MARMUX_UNIT()
 {
     if (FROMADDER)
     {
+        printf("MARMUX: From ADDER\n");
         return ADDER_UNIT();
     }
     else
@@ -860,6 +870,8 @@ int ALU_UNIT()
     int ALUK = GetALUK(CURRENT_LATCHES.MICROINSTRUCTION);
     if (ALUK == ADD)
     {
+        printf("op1 = 0x%x, op2 = 0x%x\n", op1, op2);
+        printf("op1 + op2 = %x\n", op1 +op2);
         return op1 + op2;
     }
 
@@ -934,7 +946,18 @@ void drive_bus() {
         if (GetDATA_SIZE(CURRENT_LATCHES.MICROINSTRUCTION)) // Is a Word
             bus_data = Low16bits(CURRENT_LATCHES.MDR);
         else // is a byte
-            bus_data = Low16bits(signExt(CURRENT_LATCHES.MDR & 0xFF, 8));
+        {
+            int address = CURRENT_LATCHES.MAR;
+            int lsb = address & 0x1;
+            if (lsb == 0)
+            {
+                bus_data = Low16bits(signExt(CURRENT_LATCHES.MDR & 0XFF, 8));
+            }
+            else
+            {
+                bus_data = Low16bits(signExt((CURRENT_LATCHES.MDR >> 8) & 0XFF, 8));
+            }
+        }
     }
 }
 

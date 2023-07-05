@@ -13,7 +13,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "lc3bsim3defines.h"
+#include "lc3bsim4defines.h"
 #include "utils.h"
 
 /***************************************************************/
@@ -53,7 +53,7 @@ void latch_datapath_values();
 /***************************************************************/
 enum CS_BITS {                                                  
     IRD,
-    COND1, COND0,
+    COND2, COND1, COND0,
     J5, J4, J3, J2, J1, J0,
     LD_MAR,
     LD_MDR,
@@ -68,8 +68,8 @@ enum CS_BITS {
     GATE_MARMUX,
     GATE_SHF,
     PCMUX1, PCMUX0,
-    DRMUX,
-    SR1MUX,
+    DRMUX1, DRMUX0,
+    SR1MUX1, SR1MUX0,
     ADDR1MUX,
     ADDR2MUX1, ADDR2MUX0,
     MARMUX,
@@ -86,8 +86,8 @@ enum CS_BITS {
     LD_TEMP,
     LD_PSR,
     LD_PRIV,
-    LD_SaveSSP,
-    LD_SaveUSP,
+    LD_SavedSSP,
+    LD_SavedUSP,
     LD_EX,
     LD_EXCV,
     LD_Vector,
@@ -106,7 +106,7 @@ enum CS_BITS {
 /* Functions to get at the control bits.                       */
 /***************************************************************/
 int GetIRD(int *x)           { return(x[IRD]); }
-int GetCOND(int *x)          { return((x[COND1] << 1) + x[COND0]); }
+int GetCOND(int *x)          { return((X[COND2] << 2) + (x[COND1] << 1) + x[COND0]); }
 int GetJ(int *x)             { return((x[J5] << 5) + (x[J4] << 4) + (x[J3] << 3) + (x[J2] << 2) + (x[J1] << 1) + x[J0]); }
 int GetLD_MAR(int *x)        { return(x[LD_MAR]); }
 int GetLD_MDR(int *x)        { return(x[LD_MDR]); }
@@ -121,8 +121,8 @@ int GetGATE_ALU(int *x)      { return(x[GATE_ALU]); }
 int GetGATE_MARMUX(int *x)   { return(x[GATE_MARMUX]); }
 int GetGATE_SHF(int *x)      { return(x[GATE_SHF]); }
 int GetPCMUX(int *x)         { return((x[PCMUX1] << 1) + x[PCMUX0]); }
-int GetDRMUX(int *x)         { return(x[DRMUX]); }
-int GetSR1MUX(int *x)        { return(x[SR1MUX]); }
+int GetDRMUX(int *x)         { return((x[DRMUX1] << 1) + (x[DRMUX0])); }
+int GetSR1MUX(int *x)        { return((X[sr1mux1] << 1) + (x[SR1MUX0])); }
 int GetADDR1MUX(int *x)      { return(x[ADDR1MUX]); }
 int GetADDR2MUX(int *x)      { return((x[ADDR2MUX1] << 1) + x[ADDR2MUX0]); }
 int GetMARMUX(int *x)        { return(x[MARMUX]); }
@@ -139,7 +139,21 @@ int GetIEMUX(int *x)        { return(x[IEMUX]); }
 int GetLD_TEMP(int *x)      { return(x[LD_TEMP]); }
 int GetLD_PSR(int *x)       { return(x[LD_PSR]); }
 int GetLD_PRIV(int *x)      { return(x[LD_PRIV]); }
-int GetLD_SaveSSP(int *x)   { return(x[LD_SaveSSP]; }
+int GetLD_SavedSSP(int *x)   { return(x[LD_SavedSSP]); }
+int GetLD_SavedUSP(int *x)    { return(x[LD_SavedUSP]); }
+int GetLD_EX(int *x)        { return(x[LD_EX]); }
+int GetLD_EXCV(int *x)      { return(x[LD_EXCV]); }
+int GetLD_Vector(int *x)    { return(x[LD_Vector]); }
+int GetALIGN(int *x)        { return(x[ALIGN]); }
+int GetGATE_TEMP(int *x)    { return(x[GATE_TEMP]); }
+int GetGATE_PSR(int *x)     { return(x[GATE_PSR]);  }
+int GetGATE_PCM2(int *x)    { return(x[GATE_PCM2]); }
+int GetGATE_SPMUX(int *x)   { return(x[GATE_SPMUX]);    }
+int GetGATE_SSP(int *x)     { return(x[GATE_SSP]);  }
+int GetGATE_USP(int *x)     { return(x[GATE_USP]);  }
+int GetGATE_VECTOR(int *x)  { return(x[GATE_VECTOR]);   }
+
+
 /***************************************************************/
 /* The control store rom.                                      */
 /***************************************************************/
@@ -189,6 +203,17 @@ typedef struct System_Latches_Struct{
     int MICROINSTRUCTION[CONTROL_STORE_BITS]; /* The microintruction */
 
     int STATE_NUMBER; /* Current State Number - Provided for debugging */
+
+    // Adding some regs to support interrupt and exception
+    int INTV; /* Interrupti Vector Register */
+    int EXCV; /* Exception Vector Register */
+    int SSP: /* Supervisor Stack Pointer */
+    int USP; /* User Stack Pointer */
+    int PSR; /* Processor Status Register */
+    int TEMP; /* Temporary Register to store PC before PC is incremented */
+    int VECTOR; /* Store Interrupt/Exception Handler address */
+    int EX; /* EXception Register */
+    int INT; /* Interrupt Register */
 } System_Latches;
 
 /* Data Structure for Latch */
@@ -225,7 +250,6 @@ void help() {
 /*                                                             */
 /***************************************************************/
 void cycle() {
-
   eval_micro_sequencer();
   cycle_memory();
   eval_bus_drivers();
@@ -235,6 +259,13 @@ void cycle() {
   CURRENT_LATCHES = NEXT_LATCHES;
 
   CYCLE_COUNT++;
+
+  // Timer interrupt
+  if (CYCLE_COUNT == 299)
+  {
+      NEXT_LATCHES.INT = 1;
+      NEXT_LATCHES.INTV = 0x01;
+  }
 }
 
 /***************************************************************/
@@ -644,6 +675,34 @@ printf("Begining Caculate next state's address\n");
         {
             nextStateAddress = J | (jsrOrJsrr);
         }
+        else if (COND == 4)
+        {
+            if (CURRENT_LATCHES.INT)
+            {
+                nextStateAddress = J | (0X08);
+                // TODO: If there's an interrupt in current state, we should shut down the global interrupt
+                // If there's an interrupt in current state, then show down the interrupt in the next state.
+                NEXT_LATCHES.INT = 0;
+            }
+        }
+        else if (COND == 5)
+        {
+            nextStateAddress = J | (0X10);
+        }
+        else if (COND == 6)
+        {
+            if (CURRENT_LATCHES.EX & 1) // Illegal opcode exception
+            {
+                nextStateAddress = J | (0X10);
+            }
+        }
+        else if (COND == 7)
+        {
+            if (CURRENT_LATCHES.EX & 1)
+            {
+                nextStateAddress = J |(0X20);
+            }
+        }
         else // Original address
         {
             nextStateAddress = J;
@@ -747,6 +806,14 @@ void eval_bus_drivers() {
    *            Gate_ALU,
    *            Gate_SHF,
    *            Gate_MDR.
+   *
+   *            Gate_TEMP,
+   *            Gate_PSR,
+   *            Gate_PCM2,
+   *            Gate_SPMUX,
+   *            Gate_SSP,
+   *            Gate_uSP,
+   *            Gate_Vector
    */
     gateID = NONEGate;
 
@@ -773,6 +840,42 @@ void eval_bus_drivers() {
     if (GetGATE_MDR(CURRENT_LATCHES.MICROINSTRUCTION))
     {
         gateID = GateMDR;
+    }
+
+    // Add follwoing gate to support interrupts and exceptions
+    if (GetGATE_TEMP(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        gateID = GateTEMP;
+    }
+
+    if (GetGATE_PSR(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        gateID = GatePSR;
+    }
+
+    if (GetGATE_PCM2(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        gateID = GatePCM2;
+    }
+
+    if (GetSGATE_SPMUX(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        gateID = GateSPMUX;
+    }
+
+    if (GetGATE_SSP(CURRENT_LATCHES.MICROINSTRUTION))
+    {
+        gateID = GateSSP;
+    }
+
+    if (GetGATE_USP(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        gateID = GateUSP;
+    }
+
+    if (GetGATE_VECTOR(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        gateID = GateVECTOR;
     }
 }
 
@@ -918,6 +1021,20 @@ int ALU_UNIT()
     }
 }
 
+
+int SPMUX_UNIT()
+{
+    int R6Value = SR1MUX_UNIT();
+    if (GetSPMUX(CURRENT_LATCHES.MICROINSTRUCTION))
+    {
+        return R6Value + 2;
+    }
+    else
+    {
+        return R6Value - 2;
+    }
+}
+
 int bus_data;
 void drive_bus() {
 
@@ -986,6 +1103,41 @@ void drive_bus() {
             }
         }
     }
+
+    if (gateID == GateTEMP)
+    {
+        bus_data = Low16bits(CURRENT_LATCHES.TEMP);
+    }
+
+    if (gateID == GatePSR)
+    {
+        bus_data = Low16bits(CURRENT_LATCHES.PSR);
+    }
+
+    if (gateID == GatePCM2)
+    {
+        bus_data = Low16bits(CURRENT_LATCHES.PC - 2);
+    }
+
+    if (gateID == GateSPMUX)
+    {
+        bus_data = Low16bits(SPMUX_UNIT());
+    }
+
+    if (gateID == GateSSP)
+    {
+        bus_data = Low16bits(CURRENT_LATCHES.SSP);
+    }
+
+    if (gateID == GateUSP)
+    {
+        bus_data = Low16bits(CURRENT_LATCHES.USP);
+    }
+
+    if (gateID == GateVECTOR)
+    {
+        bus_data = Low16bits(CURRENT_LATCHES.VECTOR);
+    }
 }
 
 bool is_ldw()
@@ -1028,6 +1180,46 @@ bool is_ld_pc()
     return GetLD_PC(CURRENT_LATCHES.MICROINSTRUCTION);
 }
 
+bool is_ld_temp()
+{
+    return GetLD_TEMP(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_psr()
+{
+    return GetLD_PSR(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_priv()
+{
+    return GetLD_PRIV(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_saved_ssp()
+{
+    return GetLD_SavedSSP(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_saved_usp()
+{
+    return GetLD_SavedUSP(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_ex()
+{
+    return GetLD_EX(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_excv()
+{
+    return GetLD_EXCV(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
+bool is_ld_vector()
+{
+    return GetLD_Vector(CURRENT_LATCHES.MICROINSTRUCTION);
+}
+
 void setcc()
 {
     if ((Low16bits(bus_data) >> 15) & 0x1)
@@ -1035,18 +1227,30 @@ void setcc()
          NEXT_LATCHES.N = 1;
          NEXT_LATCHES.Z = 0;
          NEXT_LATCHES.P = 0;
+
+         // Set PSR[2:0], and PSR[15] should be 1
+         NEXT_LATCHES.PSR &= 0x8000;
+         NEXT_LATCHES.PSR |= 0x0004;
     }
     else if (Low16bits(bus_data) == 0)
     {
         NEXT_LATCHES.N = 0;
         NEXT_LATCHES.Z = 1;
         NEXT_LATCHES.P = 0;
+
+        // Set PSR[2:0], and PSR[15] should be 1
+        NEXT_LATCHES.PSR &= 0x8000;
+        NEXT_LATCHES.PSR |= 0x0002;
     }
     else
     {
         NEXT_LATCHES.N = 0;
         NEXT_LATCHES.Z = 0;
         NEXT_LATCHES.P = 1;
+
+        // Set PSR[2:0], and PSR[15] should be 1
+        NEXT_LATCHES.PSR &= 0x8000;
+        NEXT_LATCHES.PSR |= 0x0001;
     }
 }
 
@@ -1151,5 +1355,46 @@ void latch_datapath_values() {
     if (is_ld_pc())
     {
         NEXT_LATCHES.PC = Low16bits(PCMUX_UNIT());
+    }
+
+    // Following are added to support exceptions and interrupt
+    // 1. LD.TEMP
+    if (is_ld_temp())
+    {
+    }
+
+    // 2. LD.PSR
+    if (is_ld_psr())
+    {
+    }
+
+    // 3. LD.PRIV
+    if (is_ld_priv())
+    {
+    }
+
+    // 4. LD.SavedSSP
+    if (is_ld_savedssp())
+    {
+    }
+
+    // 5. LD.SavedUSP
+    if (is_ld_savedusp())
+    {
+    }
+
+    // 6. LD.EX
+    if (is_ld_ex())
+    {
+    }
+
+    // 7. LD.EXCV
+    if (is_ld_excv())
+    {
+    }
+
+    // 8. LD.VECTOR
+    if (is_ld_vector())
+    {
     }
 }

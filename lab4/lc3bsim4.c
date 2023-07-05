@@ -78,6 +78,27 @@ enum CS_BITS {
     R_W,
     DATA_SIZE,
     LSHF1,
+
+    // Add following control bits
+    SPMUX,
+    EXCMUX,
+    IEMUX,
+    LD_TEMP,
+    LD_PSR,
+    LD_PRIV,
+    LD_SaveSSP,
+    LD_SaveUSP,
+    LD_EX,
+    LD_EXCV,
+    LD_Vector,
+    GATE_TEMP,
+    GATE_PSR,
+    GATE_PCM2,
+    GATE_SPMUX,
+    GATE_SSP,
+    GATE_USP,
+    GATE_Vector,
+    ALIGN,
     CONTROL_STORE_BITS
 } CS_BITS;
 
@@ -111,6 +132,14 @@ int GetR_W(int *x)           { return(x[R_W]); }
 int GetDATA_SIZE(int *x)     { return(x[DATA_SIZE]); }
 int GetLSHF1(int *x)         { return(x[LSHF1]); }
 
+// Add functions to get the control bits.
+int GetSPMUX(int *x)        { return(x[SPMUX]); }
+int GetEXCMUX(int *x)       { return(x[EXCMUX]); }
+int GetIEMUX(int *x)        { return(x[IEMUX]); }
+int GetLD_TEMP(int *x)      { return(x[LD_TEMP]); }
+int GetLD_PSR(int *x)       { return(x[LD_PSR]); }
+int GetLD_PRIV(int *x)      { return(x[LD_PRIV]); }
+int GetLD_SaveSSP(int *x)   { return(x[LD_SaveSSP]; }
 /***************************************************************/
 /* The control store rom.                                      */
 /***************************************************************/
@@ -747,12 +776,25 @@ void eval_bus_drivers() {
     }
 }
 
+int DRMUX_UNIT()
+{
+    if (GetDRMUX(CURRENT_LATCHES.MICROINSTRUCTION == 0))
+        return GetInstructionField(11,9);
+    else if (GetDRMUX(CURRENT_LATCHES.MICROINSTRUCTION == 1))
+        return 7;
+    else
+        return 6;
+}
 
 int SR1MUX_UNIT()
 {
     if (GetSR1MUX(CURRENT_LATCHES.MICROINSTRUCTION))
     {
         return CURRENT_LATCHES.REGS[GetInstructionField(8,6)];
+    }
+    else if (GetSR1MUX(CURRENT_LATCHES.MICROINSTRUCTION) == 2)
+    {
+        return CURRENT_LATCHES.REGS[6];
     }
     else
     {
@@ -1095,15 +1137,8 @@ void latch_datapath_values() {
     // 5. LD.REG
     if (is_ld_reg())
     {
-        if (GetDRMUX(CURRENT_LATCHES.MICROINSTRUCTION)) // DR = R7
-        {
-            NEXT_LATCHES.REGS[7] = Low16bits(bus_data);
-        }
-        else
-        {
-            int regnum = GetInstructionField(11,9);
-            NEXT_LATCHES.REGS[regnum] = Low16bits(bus_data);
-        }
+        int regnum = DRMUX_UNIT();
+        NEXT_LATCHES.REGS[regnum] = Low16bits(bus_data);
     }
 
     // 6. LD.CC

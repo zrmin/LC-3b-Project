@@ -1429,7 +1429,7 @@ int main(int argc, char* argv[])
            if (tokArray[i])
            {
                int regNum = 0;
-               if (tokArray[i][0] == 'r')
+               if (tokArray[i][0] == 'r' && isdigit(tokArray[i][1]))
                {
                    int j = 1;
                    while(tokArray[i][j])

@@ -728,7 +728,7 @@ void ldb_exe()
 {
     int address = CURRENT_LATCHES.REGS[BaseR] + signExt6(boffset6);
     int baseAddress = address >> 1;
-    int lastAddressBit = baseAddress & 0x1;
+    int lastAddressBit = address & 0x1;
 
     TEMP_DR = signExt8(MEMORY[baseAddress][lastAddressBit]);
     TEMP_PC = CURRENT_LATCHES.PC + 2;

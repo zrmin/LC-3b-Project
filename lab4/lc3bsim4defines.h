@@ -17,6 +17,7 @@ typedef enum {
 #define GateSHF (2)
 #define GateALU (3)
 #define GateMDR (4)
+
 // Following for I/E
 #define GateTEMP (5)
 #define GatePSR (6)
@@ -29,6 +30,8 @@ typedef enum {
 #define VECTOREBASEADDRESS (0x0200)
 #define TIMEOUT (299)
 #define INTERRUPT_VECTOR (0x01)
+#define ENABLE_INTERRUPT (1)
+#define DISENABLE_INTERRUPT (0)
 
 // Bus data
 #define NODATA (0)

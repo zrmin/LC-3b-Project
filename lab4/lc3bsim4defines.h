@@ -27,8 +27,8 @@ typedef enum {
 #define GateVECTOR (11)
 
 #define VECTOREBASEADDRESS (0x0200)
-
-
+#define TIMEOUT (299)
+#define INTERRUPT_VECTOR (0x01)
 
 // Bus data
 #define NODATA (0)

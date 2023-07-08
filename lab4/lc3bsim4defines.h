@@ -33,6 +33,12 @@ typedef enum {
 #define ENABLE_INTERRUPT (1)
 #define DISENABLE_INTERRUPT (0)
 
+// PSR register
+#define PSR_USER_MODE_MASK (0x8000)
+#define PSR_CONDITION_CODE_N_MASK (0x0004)
+#define PSR_CONDITION_CODE_Z_MASK (0x0002)
+#define PSR_CONDITION_CODE_P_MASK (0x0001)
+
 // Bus data
 #define NODATA (0)
 

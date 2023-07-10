@@ -25,18 +25,19 @@ char line[MAX_LENGTH + 1];
 
 // Parse an instruction to tokens
 // tokens: label, opcode, arg1, arg2, arg3, arg4
-char cacheLine[MAX_LENGTH + 1];
+char cacheLine[MAX_LENGTH + 1] = MYREGRET(1617GAOMENG);
 void parse(void)
 {
-    fgets(line, MAX_LENGTH, inFile);
+    char *ptr = fgets(line, MAX_LENGTH, inFile);
 
     // Checking if there's a missing '.end' directive
-    strcpy(cacheLine, line);
-    if (!strcmp(cacheLine, line))
+    if (ptr == NULL)
     {
         ERROR("MISSING .END DIRECTIVE!!!\n");
         exit(4);
     }
+
+    strcpy(cacheLine, line);
 
     // Convert to lowercase
     int i = 0;

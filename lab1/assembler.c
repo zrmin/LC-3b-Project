@@ -503,6 +503,9 @@ unsigned short jmp_ret(void)
 
         return ((12 << 12) | (7 << 6));
     }
+
+    // Illegal opcode
+    exit(2);
 }
 
 unsigned short jsr_jsrr(const unsigned short lineAddress)
@@ -585,6 +588,9 @@ unsigned short jsr_jsrr(const unsigned short lineAddress)
 
         return ((4 << 12) | (baseR << 6));
     }
+
+    // Illegal Opcode
+    exit(2);
 }
 
 unsigned short ldb(void)
@@ -877,6 +883,9 @@ unsigned short shf(void)
     {
         return ((13 << 12) | (DR << 9) | (SR << 6) | (3 << 4) | (amount4));
     }
+
+    // Illegal Opcode
+    exit(2);
 }
 
 unsigned short stb(void)
@@ -1033,6 +1042,9 @@ unsigned short trap_halt(void)
 
         return ((15 << 12) | (37));
     }
+
+    // Illegal Opcode
+    exit(2);
 }
 
 unsigned short not_xor(void)
@@ -1130,6 +1142,9 @@ unsigned short not_xor(void)
         }
 
     }
+
+    // Illegal Opcode
+    exit(2);
 }
 
 unsigned short orig(void)
@@ -1248,22 +1263,21 @@ int main(int argc, char* argv[])
     char* objName = NULL;
 
     num = argc;
-    printf("num = %d\n", num);
-    progName = argv[0];
-    asmName = argv[1];
-    objName = argv[2];
-
-    printf("Program Name is '%s'\n", progName);
-    printf("Assembly File is '%s'\n", asmName);
-    printf("Output File is '%s'\n", objName);
-    fflush(stdout);
-
     // Parameter Error Checking
     if (num < 3)
     {
         ERROR("Usage: ./assemble <source.asm> <out.obj>\n");
         exit(4);
     }
+
+    progName = argv[0];
+    asmName = argv[1];
+    objName = argv[2];
+
+    printf("Program Name is '%s'\n", progName);
+    printf("LC3b Assembly File is '%s'\n", asmName);
+    printf("Output File is '%s'\n", objName);
+    fflush(stdout);
 
     // FILE I/O
     inFile = fopen(asmName, "r");
@@ -1287,7 +1301,6 @@ int main(int argc, char* argv[])
     int lineNum = 0;
 
     // First Pass
-    printf("\n\n***Begining First Pass!***\n\n");
     while(1)
     {
         // Parse a line from an asm file
@@ -1397,7 +1410,7 @@ int main(int argc, char* argv[])
     rewind(inFile);
     lineNum = 0;
 
-    printf("***Begining Second Pass***\n\n");
+    // Second Pass
     while(1)
     {
         // Second pass

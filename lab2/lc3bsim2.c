@@ -189,7 +189,7 @@ void mdump(FILE * dumpsim_file, int start, int stop) {
 }
 
 /***************************************************************/
-/*                                                             //
+/*                                                             */
 /* Procedure : rdump                                           */
 /*                                                             */
 /* Purpose   : Dump current register and bus values to the     */   
@@ -235,7 +235,9 @@ void get_command(FILE * dumpsim_file) {
 
   printf("LC-3b-SIM> ");
 
-  scanf("%s", buffer);
+  if (scanf("%19s", buffer) != 1) {
+      printf("Error: Failed to get command!\n");
+  };
   printf("\n");
 
   switch(buffer[0]) {
@@ -246,7 +248,9 @@ void get_command(FILE * dumpsim_file) {
 
   case 'M':
   case 'm':
-    scanf("%i %i", &start, &stop);
+    if (scanf("%i %i", &start, &stop) != 2) {
+        printf("Error: Failed to get the value of start and stop!\n");
+    };
     mdump(dumpsim_file, start, stop);
     break;
 
@@ -255,6 +259,8 @@ void get_command(FILE * dumpsim_file) {
     break;
   case 'Q':
   case 'q':
+  case 'e':
+  case 'E':
     printf("Bye.\n");
     exit(0);
 
@@ -263,7 +269,9 @@ void get_command(FILE * dumpsim_file) {
     if (buffer[1] == 'd' || buffer[1] == 'D')
 	    rdump(dumpsim_file);
     else {
-	    scanf("%d", &cycles);
+	    if (scanf("%d", &cycles) != 1) {
+            printf("Error: Failed to get the value of cycles!\n");
+        };
 	    run(cycles);
     }
     break;
@@ -696,7 +704,7 @@ void and_exe()
 
 void br_exe()
 {
-    if (n && CURRENT_LATCHES.N || z && CURRENT_LATCHES.Z || p && CURRENT_LATCHES.P)
+    if ((n && CURRENT_LATCHES.N) || (z && CURRENT_LATCHES.Z) || (p && CURRENT_LATCHES.P))
     {
         TEMP_PC = CURRENT_LATCHES.PC + 2 + LSHF(signExt9(PCoffset9),1);
     }
@@ -821,12 +829,12 @@ void stw_exe()
 void trap_exe()
 {
     TEMP_R7 = CURRENT_LATCHES.PC + 2;
-    int baseAddress = LSHF(trapvect8,1);
+    int baseAddress = LSHF(trapvect8, 1);
 
     int low8bit = MEMORY[baseAddress][0];
     int high8bit = MEMORY[baseAddress][1];
 
-    TEMP_PC = high8bit << 8 + low8bit;
+    TEMP_PC = (high8bit << 8) + low8bit;
 }
 
 void xor_not_exe()
